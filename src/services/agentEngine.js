@@ -1,8 +1,9 @@
 import { getRelevantMemoryContext, addMemory } from './memoryService';
+import { queryAgentBrainVector, addAgentBrainMemory } from './agentBrainService';
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Generates role-based responses, cross-agent debates, interactive CEO chat, and structured proposals.
+ * Generates natural human executive dialogue, queries per-agent vector brains, and formats proposals.
  */
 
 export const getApiKeyConfig = () => {
@@ -19,33 +20,45 @@ export const saveApiKeyConfig = (config) => {
 };
 
 /**
+ * Detects if a user message is a greeting or casual chat
+ */
+const isGreetingOrCasual = (text) => {
+  const t = text.toLowerCase().trim();
+  const greetingPatterns = [
+    /^hello\b/, /^hi\b/, /^hey\b/, /how are you/, /good morning/, /good afternoon/, /whats up/, /what's up/
+  ];
+  return greetingPatterns.some(p => p.test(t));
+};
+
+/**
  * Generates an executive response from a specific crew member
  */
-export const generateAgentResponse = async (agent, topic, messageHistory = []) => {
-  const memoryContext = getRelevantMemoryContext(topic);
+export const generateAgentResponse = async (agent, userMessage, messageHistory = []) => {
+  const globalMemoryContext = getRelevantMemoryContext(userMessage);
+  const agentBrainContext = queryAgentBrainVector(agent.role, userMessage);
   const apiConfig = getApiKeyConfig();
 
   if (apiConfig.provider === 'GEMINI' && apiConfig.apiKey) {
     try {
-      return await callGeminiAPI(apiConfig.apiKey, agent, topic, memoryContext, messageHistory);
+      return await callGeminiAPI(apiConfig.apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory);
     } catch (err) {
       console.warn('Gemini API call failed, falling back to simulated intelligence engine:', err);
     }
   }
 
-  return await simulateAgentResponse(agent, topic, memoryContext, messageHistory);
+  return await simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory);
 };
 
 /**
- * Interactive Chat: Allows CEO to message one or multiple selected crew members
+ * Interactive Chat: CEO messages target crew members
  */
-export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, messageHistory, onNewMessage) => {
-  const memoryContext = getRelevantMemoryContext(userMessage);
+export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
+  const timeNow = new Date().toISOString();
 
   // 1. Add CEO Message to Chat
   const ceoMsg = {
     id: `msg-${Date.now()}-ceo`,
-    timestamp: new Date().toISOString(),
+    timestamp: timeNow,
     agentId: 'agent-ceo',
     agentName: 'CEO (User)',
     agentRole: 'CEO',
@@ -60,14 +73,17 @@ export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, m
   const targetCrew = selectedAgents.filter(a => a.role !== 'CEO');
   if (!targetCrew.length) return;
 
-  // 3. Sequentially trigger responses from each selected crew member
-  for (const agent of targetCrew) {
+  // 3. Sequentially process through each crew member with visual flow tracking
+  for (let i = 0; i < targetCrew.length; i++) {
+    const agent = targetCrew[i];
+    
+    if (onFlowStepUpdate) {
+      onFlowStepUpdate(agent.role);
+    }
+
     await new Promise(r => setTimeout(r, 700));
 
-    const responseContent = await generateAgentResponse(agent, `${topic} - CEO Direct Inquiry: "${userMessage}"`, [
-      ...messageHistory,
-      ceoMsg
-    ]);
+    const responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
 
     const msg = {
       id: `msg-${Date.now()}-${agent.role}`,
@@ -82,112 +98,63 @@ export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, m
     };
 
     onNewMessage(msg);
+
+    // Learn insight into agent's dedicated brain if meaningful
+    if (!isGreetingOrCasual(userMessage)) {
+      addAgentBrainMemory(agent.role, {
+        title: `CEO Interaction: ${userMessage.slice(0, 40)}...`,
+        content: `CEO instructed: "${userMessage}". Responded: "${responseContent.slice(0, 100)}..."`,
+        category: 'CEO Instruction'
+      });
+    }
+  }
+
+  if (onFlowStepUpdate) {
+    onFlowStepUpdate('COMPLETED');
   }
 };
 
 /**
  * Simulates real-time boardroom huddle debate amongst selected crew members
  */
-export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage) => {
-  const memoryContext = getRelevantMemoryContext(topic);
+export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage, onFlowStepUpdate) => {
   const huddleMessages = [];
 
-  const cso = activeAgents.find(a => a.role === 'CSO') || activeAgents[0];
-  if (cso) {
-    const msg1 = {
-      id: `msg-${Date.now()}-1`,
-      timestamp: new Date().toISOString(),
-      agentId: cso.id,
-      agentName: cso.name,
-      agentRole: cso.role,
-      avatar: cso.avatar,
-      color: cso.color,
-      badgeClass: cso.badgeClass,
-      content: `Boardroom Huddle initiated regarding "${topic}". From a strategic standpoint, our primary goal is establishing market dominance while referencing our learned principles:\n"${memoryContext.split('\n')[0] || 'Execute with CEO alignment'}"`
-    };
-    huddleMessages.push(msg1);
-    if (onNewMessage) onNewMessage(msg1);
+  for (let i = 0; i < activeAgents.length; i++) {
+    const agent = activeAgents[i];
+    if (onFlowStepUpdate) onFlowStepUpdate(agent.role);
+
     await new Promise(r => setTimeout(r, 800));
-  }
 
-  const cto = activeAgents.find(a => a.role === 'CTO');
-  if (cto) {
-    const msg2 = {
-      id: `msg-${Date.now()}-2`,
+    const responseContent = await generateAgentResponse(agent, topic, huddleMessages);
+
+    const msg = {
+      id: `msg-${Date.now()}-${agent.role}`,
       timestamp: new Date().toISOString(),
-      agentId: cto.id,
-      agentName: cto.name,
-      agentRole: cto.role,
-      avatar: cto.avatar,
-      color: cto.color,
-      badgeClass: cto.badgeClass,
-      content: `Architecturally, we should build this with zero-latency client state and GitHub API persistence. That ensures complete memory retention and 99.9% uptime with zero server overhead.`
+      agentId: agent.id,
+      agentName: agent.name,
+      agentRole: agent.role,
+      avatar: agent.avatar,
+      color: agent.color,
+      badgeClass: agent.badgeClass,
+      content: responseContent
     };
-    huddleMessages.push(msg2);
-    if (onNewMessage) onNewMessage(msg2);
-    await new Promise(r => setTimeout(r, 1000));
+
+    huddleMessages.push(msg);
+    if (onNewMessage) onNewMessage(msg);
   }
 
-  const cfo = activeAgents.find(a => a.role === 'CFO');
-  if (cfo) {
-    const msg3 = {
-      id: `msg-${Date.now()}-3`,
-      timestamp: new Date().toISOString(),
-      agentId: cfo.id,
-      agentName: cfo.name,
-      agentRole: cfo.role,
-      avatar: cfo.avatar,
-      color: cfo.color,
-      badgeClass: cfo.badgeClass,
-      content: `Financial projection: Cost breakdown is optimized for low operating burn. Projected ROI exceeds 300% within 60 days once CEO approves execution.`
-    };
-    huddleMessages.push(msg3);
-    if (onNewMessage) onNewMessage(msg3);
-    await new Promise(r => setTimeout(r, 900));
-  }
+  if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
 
-  const cmo = activeAgents.find(a => a.role === 'CMO');
-  if (cmo) {
-    const msg4 = {
-      id: `msg-${Date.now()}-4`,
-      timestamp: new Date().toISOString(),
-      agentId: cmo.id,
-      agentName: cmo.name,
-      agentRole: cmo.role,
-      avatar: cmo.avatar,
-      color: cmo.color,
-      badgeClass: cmo.badgeClass,
-      content: `Marketing campaign is mapped. We will position this as the ultimate 'CEO Command Center' — leveraging viral social proof and live interactive demos.`
-    };
-    huddleMessages.push(msg4);
-    if (onNewMessage) onNewMessage(msg4);
-    await new Promise(r => setTimeout(r, 900));
-  }
-
-  const dev = activeAgents.find(a => a.role === 'DEV');
-  if (dev) {
-    const msg5 = {
-      id: `msg-${Date.now()}-5`,
-      timestamp: new Date().toISOString(),
-      agentId: dev.id,
-      agentName: dev.name,
-      agentRole: dev.role,
-      avatar: dev.avatar,
-      color: dev.color,
-      badgeClass: dev.badgeClass,
-      content: `Development sprint ready. I will break down implementation into modular components, reactive state hooks, and GitHub Pages build targets upon CEO greenlight.`
-    };
-    huddleMessages.push(msg5);
-    if (onNewMessage) onNewMessage(msg5);
-  }
-
+  // Automatically log huddle consensus to global memory
+  const cso = activeAgents.find(a => a.role === 'CSO') || activeAgents[0];
   addMemory({
     authorId: cso ? cso.id : 'agent-cso',
     authorName: cso ? cso.name : 'Aria Vance',
     authorRole: cso ? cso.role : 'CSO',
     category: 'Boardroom Decision',
     title: `Huddle Consensus: ${topic}`,
-    content: `Crew aligned on strategic direction for "${topic}". High feasibility confirmed across Tech, Finance, and Marketing. Proposal submitted to CEO Approval Queue.`,
+    content: `Executive crew aligned on strategy for "${topic}". High feasibility confirmed across Strategy, Tech, Finance, and Marketing.`,
     tags: ['Boardroom Huddle', 'Consensus', topic.split(' ')[0]],
     importance: 'High'
   });
@@ -226,31 +193,54 @@ export const synthesizeProposal = (topic, proposer = 'Aria Vance (CSO)') => {
   };
 };
 
-async function simulateAgentResponse(agent, topic, memoryContext, messageHistory) {
-  await new Promise(r => setTimeout(r, 600));
+/**
+ * Natural Human Conversational AI Engine
+ */
+async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
+  await new Promise(r => setTimeout(r, 500));
 
-  const roleResponses = {
-    CSO: `From a strategic perspective regarding "${topic}", we should align our growth vectors with market demand and anchor against our learned charter.`,
-    CTO: `Technical perspective on "${topic}": We can architect this cleanly using modular JS components and GitHub REST persistence for reliable zero-latency execution.`,
-    CMO: `Marketing perspective on "${topic}": The value proposition is compelling. We can launch targeted campaigns with high viral potential.`,
-    CFO: `Financial audit for "${topic}": Low capital burn with high margin potential. Payback period is estimated under 60 days.`,
-    DEV: `Engineering perspective on "${topic}": Sprint tasks are mapped out. Code deliverables ready to build as soon as CEO greenlights.`,
-    PLANNER: `Project plan for "${topic}": Milestones structured into Phase 1 (Design), Phase 2 (Implementation), and Phase 3 (GitHub Deployment).`
+  // Case 1: Casual Greetings & Human Chat
+  if (isGreetingOrCasual(userMessage)) {
+    const greetingResponses = {
+      CSO: `Hello CEO! I'm doing great. Strategy roadmap is on track and I'm actively analyzing our next growth vectors. How can I assist you today?`,
+      CTO: `Hey CEO! All systems are green and infrastructure is running smoothly with zero latency. Ready for your direction!`,
+      CMO: `Hi boss! Doing fantastic. Brand engagement is strong and campaign angles are ready whenever you want to launch.`,
+      CFO: `Good day, CEO! Financial health is solid, burn rate is under control, and margins look healthy. What's on your mind?`,
+      DEV: `Hey CEO! All good on my end. Code repos are clean and sprint tasks are queued up. What are we building today?`,
+      PLANNER: `Hello CEO! Team schedule is aligned and milestone targets are mapped out. How can I help?`
+    };
+    return greetingResponses[agent.role] || `Hello CEO! Doing great and ready to execute under your leadership.`;
+  }
+
+  // Case 2: Natural Human Executive Dialogue on Business & Strategic Topics
+  const humanExecutiveResponses = {
+    CSO: `Regarding "${userMessage}": From a strategy perspective, this directly strengthens our market moat. Querying my brain memory, our priority is building defensible positioning while keeping capital efficient.`,
+    CTO: `Looking at "${userMessage}": Technical feasibility is high. I recommend building this modularly using client state and GitHub API persistence. That gives us instant performance with full memory retention.`,
+    CMO: `On "${userMessage}": Marketing angle is crystal clear. We can frame this around high-converting CEO automation stories and drive strong organic acquisition.`,
+    CFO: `Analyzing "${userMessage}": Financial breakdown is favorable. Operating costs are minimal and projected payback period remains under 60 days. Margin impact is net positive.`,
+    DEV: `Engineering update for "${userMessage}": Architecture is mapped out into clean components. As soon as you greenlight this, I'll generate the code assets and push tickets to GitHub.`,
+    PLANNER: `Project plan for "${userMessage}": Milestone phases organized into 1) Architecture Prep, 2) Implementation Sprint, and 3) GitHub Deployment.`
   };
 
-  return roleResponses[agent.role] || `As ${agent.title}, I recommend proceeding with aligned execution on "${topic}" under strict CEO governance.`;
+  return humanExecutiveResponses[agent.role] || `As ${agent.title}, I've analyzed "${userMessage}" against my agent memory and recommend proceeding with aligned execution.`;
 }
 
-async function callGeminiAPI(apiKey, agent, topic, memoryContext, messageHistory) {
-  const prompt = `System Prompt: ${agent.systemPrompt}
-Shared Crew Memory:
-${memoryContext}
+/**
+ * Google Gemini API Handler with Natural Persona
+ */
+async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
+  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as a human executive colleague to the CEO. Do NOT use awkward templated prefix strings or echo inquiry headers.
+Your Personal Agent Brain Memories:
+${agentBrainContext || 'No prior agent specific memories.'}
 
-Context/Topic: ${topic}
-Discussion History:
+Company Shared Memory:
+${globalMemoryContext}
+
+CEO User Message: "${userMessage}"
+Recent Conversation:
 ${messageHistory.map(m => `${m.agentRole}: ${m.content}`).join('\n')}
 
-Respond as ${agent.name} (${agent.title}). Keep response concise, insightful, and strategic (max 3 sentences).`;
+Respond naturally in 2-3 sentences as ${agent.name} (${agent.title}).`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',

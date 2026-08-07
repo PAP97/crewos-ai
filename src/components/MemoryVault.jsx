@@ -7,17 +7,17 @@ import {
   Tag, 
   Clock, 
   BrainCircuit, 
-  Download, 
-  Upload,
-  CheckCircle2,
-  Sparkles
+  Download,
+  CheckCircle2
 } from 'lucide-react';
 import { searchMemories, addMemory } from '../services/memoryService';
+import { getAgentBrainMemories } from '../services/agentBrainService';
 import { syncMemoryToGitHub } from '../services/githubService';
 
 export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpenGitHubSettings }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [brainSourceFilter, setBrainSourceFilter] = useState('ALL');
   const [isAddingModalOpen, setIsAddingModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
@@ -28,7 +28,36 @@ export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpe
   const [newContent, setNewContent] = useState('');
   const [newTags, setNewTags] = useState('CEO Mandate, Strategy');
 
-  const filteredMemories = searchMemories(searchQuery, categoryFilter);
+  // Combine shared company memories with individual agent vector brains if requested
+  let combinedMemories = [...memories];
+
+  if (brainSourceFilter !== 'ALL' && brainSourceFilter !== 'SHARED') {
+    const agentMemories = getAgentBrainMemories(brainSourceFilter);
+    combinedMemories = agentMemories.map(m => ({
+      id: m.id,
+      timestamp: m.timestamp,
+      authorId: `agent-${m.agentRole.toLowerCase()}`,
+      authorName: `${m.agentRole} Agent Brain`,
+      authorRole: m.agentRole,
+      category: m.category,
+      title: m.title,
+      content: m.content,
+      tags: m.tags || [m.agentRole],
+      importance: m.importance || 'Medium'
+    }));
+  }
+
+  const filteredMemories = combinedMemories.filter(mem => {
+    const matchesCategory = categoryFilter === 'ALL' || mem.category === categoryFilter;
+    const q = searchQuery.toLowerCase();
+    const matchesQuery = !searchQuery || 
+      mem.title.toLowerCase().includes(q) ||
+      mem.content.toLowerCase().includes(q) ||
+      mem.tags.some(t => t.toLowerCase().includes(q)) ||
+      mem.authorName.toLowerCase().includes(q);
+    
+    return matchesCategory && matchesQuery;
+  });
 
   const handleAddMemorySubmit = (e) => {
     e.preventDefault();
@@ -87,11 +116,11 @@ export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpe
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">
-              <BrainCircuit className="w-3.5 h-3.5" /> Collective Crew Intelligence
+              <BrainCircuit className="w-3.5 h-3.5" /> Collective & Per-Agent Intelligence
             </div>
-            <h2 className="text-2xl font-bold text-white">Shared Memory Vault</h2>
+            <h2 className="text-2xl font-bold text-white">Shared & Per-Agent Memory Vaults</h2>
             <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-              Every boardroom huddle, CEO approval, and strategic directive is indexed here. All crew members query this memory bank before proposing plans so they never forget context.
+              Every boardroom huddle, CEO directive, and individual agent memory vector is indexed here. Select specific agent brains to filter learned lessons per role.
             </p>
           </div>
 
@@ -132,7 +161,7 @@ export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpe
           </div>
         )}
 
-        {/* Search & Category Filter */}
+        {/* Search & Brain Selector Filters */}
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -144,6 +173,20 @@ export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpe
               className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-900 border border-slate-700/80 rounded-xl"
             />
           </div>
+
+          <select
+            value={brainSourceFilter}
+            onChange={(e) => setBrainSourceFilter(e.target.value)}
+            className="bg-slate-900 border border-slate-700/80 text-xs rounded-xl px-3 py-2.5 font-semibold text-cyan-400"
+          >
+            <option value="ALL">All Memory Sources</option>
+            <option value="SHARED">Global Company Shared Memory</option>
+            <option value="CSO">CSO Brain Memory Vault</option>
+            <option value="CTO">CTO Brain Memory Vault</option>
+            <option value="CMO">CMO Brain Memory Vault</option>
+            <option value="CFO">CFO Brain Memory Vault</option>
+            <option value="DEV">DEV Brain Memory Vault</option>
+          </select>
 
           <select
             value={categoryFilter}
@@ -164,7 +207,7 @@ export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpe
         {filteredMemories.length === 0 ? (
           <div className="col-span-2 glass-panel p-12 text-center text-slate-500">
             <Database className="w-12 h-12 stroke-1 mx-auto mb-3 text-slate-600" />
-            <p className="text-sm">No memories found matching your search query.</p>
+            <p className="text-sm">No memories found matching your search query or selected brain filter.</p>
           </div>
         ) : (
           filteredMemories.map((mem) => (
@@ -207,7 +250,7 @@ export default function MemoryVault({ memories, setMemories, gitHubConfig, onOpe
       {isAddingModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="glass-panel max-w-lg w-full p-6 space-y-4 border-purple-500/30">
-            <h3 className="text-lg font-bold text-white">Add Knowledge Entry to Crew Memory</h3>
+            <h3 className="text-lg font-bold text-white">Add Knowledge Entry to Shared Memory</h3>
             <form onSubmit={handleAddMemorySubmit} className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-slate-400 block mb-1">Memory Title</label>
