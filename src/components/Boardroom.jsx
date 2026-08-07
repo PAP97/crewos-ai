@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity } from 'lucide-react';
+import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign } from 'lucide-react';
 import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal } from '../services/agentEngine';
 
 const STORAGE_CHAT_KEY = 'crewos_boardroom_chat_history';
@@ -9,7 +9,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const [userChatInput, setUserChatInput] = useState('');
   const [isHuddling, setIsHuddling] = useState(false);
   const [huddleMessages, setHuddleMessages] = useState([]);
-  const [activeFlowStep, setActiveFlowStep] = useState(null); // Active role processing: 'CSO' | 'CTO' | 'CFO' | 'CMO' | 'DEV' | 'COMPLETED'
+  const [activeFlowStep, setActiveFlowStep] = useState(null);
   
   // Selected crew members for conversation
   const [selectedAgentRoles, setSelectedAgentRoles] = useState(
@@ -56,6 +56,13 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     setSelectedAgentRoles(crewRoster.filter(a => a.role !== 'CEO').map(a => a.role));
   };
 
+  const handleTagAgentInput = (role) => {
+    const tag = `@${role} `;
+    if (!userChatInput.includes(tag)) {
+      setUserChatInput(prev => `${tag}${prev}`);
+    }
+  };
+
   const handleStartHuddle = async (e) => {
     e.preventDefault();
     if (!topic.trim() || isHuddling) return;
@@ -89,11 +96,9 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     setIsHuddling(true);
     setActiveFlowStep('CEO');
 
-    const activeCrew = crewRoster.filter(a => selectedAgentRoles.includes(a.role));
-
     await handleCEOChatMessage(
       inputMsg,
-      activeCrew,
+      crewRoster,
       topic || 'Strategic Q&A',
       huddleMessages,
       (newMsg) => {
@@ -136,9 +141,9 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
             <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
               <Sparkles className="w-3.5 h-3.5" /> Interactive CEO & Multi-Crew Boardroom
             </div>
-            <h2 className="text-2xl font-bold text-white">Boardroom Huddle & Directive Routing</h2>
+            <h2 className="text-2xl font-bold text-white">Boardroom Briefings & Tagging (@Agent)</h2>
             <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-              Talk directly as CEO. Selected crew members respond in sequence using their dedicated Vector Brains. Chats persist permanently across sessions.
+              Ask general questions for a Lead Executive Brief, or tag specific team members with <strong>@CTO</strong>, <strong>@CFO</strong>, <strong>@CMO</strong>, or <strong>@DEV</strong> for targeted department answers.
             </p>
           </div>
 
@@ -172,7 +177,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Launch a new enterprise tier for automated agent workflows..."
+              placeholder="e.g. Launch an enterprise subscription tier for automated agent workflows..."
               className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
               disabled={isHuddling}
             />
@@ -190,7 +195,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
             ) : (
               <>
                 <Play className="w-4 h-4 fill-white" />
-                Convene Selected Huddle
+                Convene Full Crew Huddle
               </>
             )}
           </button>
@@ -205,14 +210,13 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
           </span>
           {activeFlowStep && (
             <span className="text-emerald-400 font-mono flex items-center gap-1 text-[11px] animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Active: {activeFlowStep}
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Active Responder: {activeFlowStep}
             </span>
           )}
         </div>
 
         {/* Stepper Pipeline */}
         <div className="flex items-center gap-2 overflow-x-auto py-2 pr-2">
-          {/* CEO Node */}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap ${
             activeFlowStep === 'CEO' || activeFlowStep === 'STARTING'
               ? 'bg-purple-950 border-purple-500 text-purple-200 glow-purple animate-pulse'
@@ -223,22 +227,20 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
 
           <span className="text-slate-600 font-bold">➔</span>
 
-          {/* Active Responders Stepper */}
-          {selectedAgentRoles.map((role, idx) => {
-            const agent = crewRoster.find(a => a.role === role);
-            const isActive = activeFlowStep === role;
+          {crewRoster.filter(a => a.role !== 'CEO').map((agent, idx) => {
+            const isActive = activeFlowStep === agent.role;
 
             return (
-              <React.Fragment key={role}>
+              <React.Fragment key={agent.role}>
                 <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
                     ? 'bg-purple-900/80 border-purple-400 text-white shadow-lg shadow-purple-500/30 animate-bounce'
                     : 'bg-slate-900/80 border-slate-800 text-slate-400 opacity-80'
                 }`}>
-                  <span>{agent?.avatar || '🤖'}</span>
-                  <span>{role}</span>
+                  <span>{agent.avatar}</span>
+                  <span>{agent.role}</span>
                 </div>
-                {idx < selectedAgentRoles.length - 1 && <span className="text-slate-600 font-bold">➔</span>}
+                {idx < crewRoster.length - 2 && <span className="text-slate-600 font-bold">➔</span>}
               </React.Fragment>
             );
           })}
@@ -248,59 +250,42 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
       {/* Main Boardroom Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
-        {/* Left: Crew Responders Selector */}
+        {/* Left: Crew Roster Quick Access */}
         <div className="lg:col-span-1 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Chat Responders ({selectedAgentRoles.length})
+              Executive Crew ({crewRoster.length - 1})
             </h3>
-            <button 
-              onClick={handleSelectAllAgents} 
-              className="text-[11px] text-purple-400 hover:underline font-semibold"
-            >
-              Select All
-            </button>
           </div>
 
           <div className="space-y-2">
-            {crewRoster.filter(a => a.role !== 'CEO').map(agent => {
-              const isSelected = selectedAgentRoles.includes(agent.role);
-
-              return (
-                <div 
-                  key={agent.id}
-                  onClick={() => toggleAgentSelection(agent.role)}
-                  className={`glass-card p-3 flex items-center gap-3 cursor-pointer transition-all border ${
-                    isSelected 
-                      ? 'border-purple-500/80 bg-purple-950/30' 
-                      : 'border-slate-800 opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base bg-slate-900 border border-slate-700">
-                    {agent.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-semibold text-white truncate">{agent.name}</h4>
-                      <span className={`badge ${agent.badgeClass} text-[9px] px-1.5 py-0.2`}>{agent.role}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 truncate">{agent.title}</p>
-                  </div>
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                    isSelected ? 'bg-purple-600 border-purple-500 text-white' : 'border-slate-700'
-                  }`}>
-                    {isSelected && <Check className="w-3 h-3" />}
-                  </div>
+            {crewRoster.filter(a => a.role !== 'CEO').map(agent => (
+              <div 
+                key={agent.id}
+                onClick={() => handleTagAgentInput(agent.role)}
+                className="glass-card p-3 flex items-center gap-3 cursor-pointer transition-all border border-slate-800 hover:border-purple-500/80 hover:bg-purple-950/20"
+                title={`Click to tag @${agent.role}`}
+              >
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base bg-slate-900 border border-slate-700">
+                  {agent.avatar}
                 </div>
-              );
-            })}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-white truncate">{agent.name}</h4>
+                    <span className={`badge ${agent.badgeClass} text-[9px] px-1.5 py-0.2`}>{agent.role}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate">{agent.title}</p>
+                </div>
+                <span className="text-[11px] text-purple-400 font-mono font-bold">+@</span>
+              </div>
+            ))}
           </div>
 
           <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
             <span className="font-bold text-slate-300 flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5 text-purple-400" /> Multi-Crew Collaboration
+              <AtSign className="w-3.5 h-3.5 text-purple-400" /> Tagging (@Agent) System
             </span>
-            <p>Select 1 agent for single chat, or multiple agents to have them debate together in a single room!</p>
+            <p>Click any crew member above or click a tag button below to ask targeted department questions!</p>
           </div>
         </div>
 
@@ -312,11 +297,11 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-purple-400" />
-                <h3 className="text-sm font-bold text-white">Live Persistent Transcript</h3>
+                <h3 className="text-sm font-bold text-white">Live Persistent Boardroom Transcript</h3>
               </div>
               {huddleMessages.length > 0 && (
                 <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-cyan-400" /> {huddleMessages.length} Messages Persisted
+                  <Clock className="w-3 h-3 text-cyan-400" /> {huddleMessages.length} Messages Logged
                 </span>
               )}
             </div>
@@ -366,14 +351,32 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
               )}
             </div>
 
-            {/* CEO Interactive Chat Input Bar */}
-            <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+            {/* CEO Interactive Chat Bar with Quick @Tags */}
+            <div className="mt-4 pt-4 border-t border-slate-800 space-y-2.5">
+              
+              {/* Quick Tag Pills */}
+              <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-400">
+                <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                  <AtSign className="w-3 h-3 text-purple-400" /> Tag Member:
+                </span>
+                {crewRoster.filter(a => a.role !== 'CEO').map(agent => (
+                  <button
+                    key={agent.role}
+                    type="button"
+                    onClick={() => handleTagAgentInput(agent.role)}
+                    className="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-purple-950/60 border border-slate-800 hover:border-purple-500/40 text-[11px] font-mono text-purple-300 transition-all flex items-center gap-1"
+                  >
+                    <span>{agent.avatar}</span> @{agent.role}
+                  </button>
+                ))}
+              </div>
+
               <form onSubmit={handleSendCEOMessage} className="flex items-center gap-2">
                 <input
                   type="text"
                   value={userChatInput}
                   onChange={(e) => setUserChatInput(e.target.value)}
-                  placeholder="CEO Message: Ask a question, give a directive, or chat with selected crew members..."
+                  placeholder="Ask a question or tag a member (e.g. @CTO how is tech stack? or @CFO what is burn rate?)..."
                   className="flex-1 text-xs py-2.5 bg-slate-900 border border-slate-700/90 rounded-xl"
                   disabled={isHuddling}
                 />

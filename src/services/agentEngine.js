@@ -3,7 +3,7 @@ import { queryAgentBrainVector, addAgentBrainMemory } from './agentBrainService'
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Generates natural human executive dialogue, queries per-agent vector brains, and formats proposals.
+ * Supports Natural Human Executive Dialogue, Lead Representative Briefings, and @Tag Mentions.
  */
 
 export const getApiKeyConfig = () => {
@@ -31,6 +31,32 @@ const isGreetingOrCasual = (text) => {
 };
 
 /**
+ * Detects if user is asking "what are you working on" or status questions
+ */
+const isStatusOrWorkQuestion = (text) => {
+  const t = text.toLowerCase().trim();
+  return t.includes('what are you working on') || t.includes('what you are working on') || t.includes('status update') || t.includes('current progress');
+};
+
+/**
+ * Extracts tagged roles from message e.g. @CTO, @CFO, @CMO, @DEV, @CSO
+ */
+export const extractTaggedRoles = (message, crewRoster) => {
+  const text = message.toUpperCase();
+  const tagged = [];
+
+  crewRoster.forEach(agent => {
+    const roleTag = `@${agent.role}`;
+    const nameTag = `@${agent.name.split(' ')[0].toUpperCase()}`;
+    if (text.includes(roleTag) || text.includes(nameTag)) {
+      tagged.push(agent);
+    }
+  });
+
+  return tagged;
+};
+
+/**
  * Generates an executive response from a specific crew member
  */
 export const generateAgentResponse = async (agent, userMessage, messageHistory = []) => {
@@ -50,9 +76,11 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
 };
 
 /**
- * Interactive Chat: CEO messages target crew members
+ * Interactive Chat Handler:
+ * - If CEO tags specific member(s) with @Tag, ONLY tagged member(s) answer in-depth.
+ * - If CEO asks group question without tags, ONE Lead Representative (CSO) gives a unified brief!
  */
-export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
+export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
   const timeNow = new Date().toISOString();
 
   // 1. Add CEO Message to Chat
@@ -69,21 +97,37 @@ export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, m
   };
   onNewMessage(ceoMsg);
 
-  // 2. Filter out CEO from target responders
-  const targetCrew = selectedAgents.filter(a => a.role !== 'CEO');
-  if (!targetCrew.length) return;
+  // 2. Check for @Tag mentions
+  const taggedAgents = extractTaggedRoles(userMessage, crewRoster);
 
-  // 3. Sequentially process through each crew member with visual flow tracking
-  for (let i = 0; i < targetCrew.length; i++) {
-    const agent = targetCrew[i];
-    
-    if (onFlowStepUpdate) {
-      onFlowStepUpdate(agent.role);
+  let targetResponders = [];
+
+  if (taggedAgents.length > 0) {
+    // Respond ONLY with tagged agent(s)
+    targetResponders = taggedAgents;
+  } else {
+    // Group mode without tags -> CSO Lead Representative gives executive brief!
+    const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
+    targetResponders = [leadCSO];
+  }
+
+  // 3. Sequentially generate responses
+  for (let i = 0; i < targetResponders.length; i++) {
+    const agent = targetResponders[i];
+
+    if (onFlowStepUpdate) onFlowStepUpdate(agent.role);
+
+    await new Promise(r => setTimeout(r, 650));
+
+    let responseContent = '';
+
+    if (taggedAgents.length === 0 && agent.role === 'CSO' && !isGreetingOrCasual(userMessage) && !isStatusOrWorkQuestion(userMessage)) {
+      // Lead Representative Unified Briefing
+      const innerResp = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
+      responseContent = `${innerResp}\n\n💡 *Tip: If you'd like deeper technical, financial, or marketing specifics, tag any member e.g. @CTO, @CFO, @CMO, or @DEV!*`;
+    } else {
+      responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
     }
-
-    await new Promise(r => setTimeout(r, 700));
-
-    const responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
 
     const msg = {
       id: `msg-${Date.now()}-${agent.role}`,
@@ -99,19 +143,16 @@ export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, m
 
     onNewMessage(msg);
 
-    // Learn insight into agent's dedicated brain if meaningful
     if (!isGreetingOrCasual(userMessage)) {
       addAgentBrainMemory(agent.role, {
         title: `CEO Interaction: ${userMessage.slice(0, 40)}...`,
-        content: `CEO instructed: "${userMessage}". Responded: "${responseContent.slice(0, 100)}..."`,
-        category: 'CEO Instruction'
+        content: `CEO asked: "${userMessage}". Answered: "${responseContent.slice(0, 100)}..."`,
+        category: 'CEO Direct Dialogue'
       });
     }
   }
 
-  if (onFlowStepUpdate) {
-    onFlowStepUpdate('COMPLETED');
-  }
+  if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
 };
 
 /**
@@ -124,7 +165,7 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage,
     const agent = activeAgents[i];
     if (onFlowStepUpdate) onFlowStepUpdate(agent.role);
 
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 750));
 
     const responseContent = await generateAgentResponse(agent, topic, huddleMessages);
 
@@ -146,7 +187,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage,
 
   if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
 
-  // Automatically log huddle consensus to global memory
   const cso = activeAgents.find(a => a.role === 'CSO') || activeAgents[0];
   addMemory({
     authorId: cso ? cso.id : 'agent-cso',
@@ -194,43 +234,57 @@ export const synthesizeProposal = (topic, proposer = 'Aria Vance (CSO)') => {
 };
 
 /**
- * Natural Human Conversational AI Engine
+ * Natural Human Conversational AI Engine (NO Echoed Question Strings)
  */
 async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 450));
 
-  // Case 1: Casual Greetings & Human Chat
+  // Case 1: Casual Greetings
   if (isGreetingOrCasual(userMessage)) {
-    const greetingResponses = {
-      CSO: `Hello CEO! I'm doing great. Strategy roadmap is on track and I'm actively analyzing our next growth vectors. How can I assist you today?`,
-      CTO: `Hey CEO! All systems are green and infrastructure is running smoothly with zero latency. Ready for your direction!`,
-      CMO: `Hi boss! Doing fantastic. Brand engagement is strong and campaign angles are ready whenever you want to launch.`,
-      CFO: `Good day, CEO! Financial health is solid, burn rate is under control, and margins look healthy. What's on your mind?`,
-      DEV: `Hey CEO! All good on my end. Code repos are clean and sprint tasks are queued up. What are we building today?`,
-      PLANNER: `Hello CEO! Team schedule is aligned and milestone targets are mapped out. How can I help?`
+    const greetings = {
+      CSO: `Hello CEO! Doing great. I'm reviewing our market expansion metrics and refining our Q3 growth roadmap. How can I support you?`,
+      CTO: `Hey CEO! All systems are green. Production builds are compiling cleanly and our GitHub persistence pipeline is operating with zero latency.`,
+      CMO: `Hi boss! Doing fantastic. Our product positioning is set and launch copy assets are ready whenever you want to trigger campaign outreach.`,
+      CFO: `Good day, CEO! Financial burn is well under control, gross margins remain above 80%, and payback windows look healthy.`,
+      DEV: `Hey CEO! Ready for action. Code modules are structured and sprint tickets are queued up for GitHub dispatch.`,
+      PLANNER: `Hello CEO! All milestones are scheduled and execution pipelines are aligned. How can I help?`
     };
-    return greetingResponses[agent.role] || `Hello CEO! Doing great and ready to execute under your leadership.`;
+    return greetings[agent.role] || `Hello CEO! Doing great and ready for your direction.`;
   }
 
-  // Case 2: Natural Human Executive Dialogue on Business & Strategic Topics
-  const humanExecutiveResponses = {
-    CSO: `Regarding "${userMessage}": From a strategy perspective, this directly strengthens our market moat. Querying my brain memory, our priority is building defensible positioning while keeping capital efficient.`,
-    CTO: `Looking at "${userMessage}": Technical feasibility is high. I recommend building this modularly using client state and GitHub API persistence. That gives us instant performance with full memory retention.`,
-    CMO: `On "${userMessage}": Marketing angle is crystal clear. We can frame this around high-converting CEO automation stories and drive strong organic acquisition.`,
-    CFO: `Analyzing "${userMessage}": Financial breakdown is favorable. Operating costs are minimal and projected payback period remains under 60 days. Margin impact is net positive.`,
-    DEV: `Engineering update for "${userMessage}": Architecture is mapped out into clean components. As soon as you greenlight this, I'll generate the code assets and push tickets to GitHub.`,
-    PLANNER: `Project plan for "${userMessage}": Milestone phases organized into 1) Architecture Prep, 2) Implementation Sprint, and 3) GitHub Deployment.`
+  // Case 2: "What are you working on?" status questions
+  if (isStatusOrWorkQuestion(userMessage)) {
+    const workStatus = {
+      CSO: `Right now, I'm analyzing enterprise buyer trends and preparing our Q3 growth vector proposal for your sign-off.`,
+      CTO: `I'm optimizing our client-side state architecture, verifying GitHub API persistence hooks, and auditing system security.`,
+      CMO: `I'm polishing our GTM launch copy, setting up customer acquisition loops, and preparing ProductHunt & X campaign materials.`,
+      CFO: `I'm modeling unit economics for our upcoming product launch, ensuring operating burn stays low and ROI exceeds 300%.`,
+      DEV: `I'm writing modular React component contracts, setting up local persistence state, and preparing automated GitHub issue templates.`,
+      PLANNER: `I'm organizing sprint milestones, scheduling crew deliverables, and tracking task completion rates.`
+    };
+    return workStatus[agent.role] || `I'm actively working on our executive directives under your guidance, CEO.`;
+  }
+
+  // Case 3: Realistic Human Executive Response on Strategic Topics (NO ECHOED STRINGS)
+  const realisticDialogue = {
+    CSO: `This initiative aligns directly with our growth strategy. By anchoring against our learned principles, we can establish a defensible market moat while keeping capital burn low.`,
+    CTO: `Technically, this is straightforward to build. I recommend using modular JS architecture with GitHub REST API persistence to ensure zero server latency and full data retention.`,
+    CMO: `From a brand perspective, the value proposition is sharp. We can craft a high-converting campaign around CEO-controlled AI agent teams to drive rapid organic user signups.`,
+    CFO: `Financially, the metrics look solid. Required capital is minimal, projected gross margins exceed 85%, and payback is estimated within 45 to 60 days.`,
+    DEV: `Engineering sprint is ready. Once you authorize this directive, I'll generate the production code components and push implementation tickets to GitHub.`,
+    PLANNER: `Project milestones mapped into Phase 1 (Architecture), Phase 2 (Implementation), and Phase 3 (GitHub Deployment).`
   };
 
-  return humanExecutiveResponses[agent.role] || `As ${agent.title}, I've analyzed "${userMessage}" against my agent memory and recommend proceeding with aligned execution.`;
+  return realisticDialogue[agent.role] || `As ${agent.title}, I've analyzed your directive against my agent vector brain and recommend proceeding with aligned execution.`;
 }
 
 /**
- * Google Gemini API Handler with Natural Persona
+ * Google Gemini API Handler
  */
 async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as a human executive colleague to the CEO. Do NOT use awkward templated prefix strings or echo inquiry headers.
-Your Personal Agent Brain Memories:
+  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as a human executive colleague to the CEO. Do NOT echo or quote the user's question back (never use phrases like "Regarding '...'"). Answer directly and conversationally in 2-3 sentences.
+
+Your Agent Brain Memories:
 ${agentBrainContext || 'No prior agent specific memories.'}
 
 Company Shared Memory:
@@ -240,7 +294,7 @@ CEO User Message: "${userMessage}"
 Recent Conversation:
 ${messageHistory.map(m => `${m.agentRole}: ${m.content}`).join('\n')}
 
-Respond naturally in 2-3 sentences as ${agent.name} (${agent.title}).`;
+Respond naturally as ${agent.name} (${agent.title}).`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
