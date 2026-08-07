@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  base: './',
+  base: '/crewos-ai/', // Explicit GitHub Pages base path for repo pap97/crewos-ai
   build: {
     outDir: 'dist',
     sourcemap: true,
