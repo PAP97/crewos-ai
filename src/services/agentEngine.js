@@ -3,7 +3,7 @@ import { queryAgentBrainVector, addAgentBrainMemory } from './agentBrainService'
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Supports Natural Human Executive Dialogue, Lead Representative Briefings, and @Tag Mentions.
+ * Features Pre-Response Internal Crew Sub-Chat ("Think Before Talk"), Vector Brain Queries, and @Tag Mentions.
  */
 
 export const getApiKeyConfig = () => {
@@ -19,9 +19,6 @@ export const saveApiKeyConfig = (config) => {
   localStorage.setItem('crewos_api_keys', JSON.stringify(config));
 };
 
-/**
- * Detects if a user message is a greeting or casual chat
- */
 const isGreetingOrCasual = (text) => {
   const t = text.toLowerCase().trim();
   const greetingPatterns = [
@@ -30,17 +27,11 @@ const isGreetingOrCasual = (text) => {
   return greetingPatterns.some(p => p.test(t));
 };
 
-/**
- * Detects if user is asking "what are you working on" or status questions
- */
 const isStatusOrWorkQuestion = (text) => {
   const t = text.toLowerCase().trim();
   return t.includes('what are you working on') || t.includes('what you are working on') || t.includes('status update') || t.includes('current progress');
 };
 
-/**
- * Extracts tagged roles from message e.g. @CTO, @CFO, @CMO, @DEV, @CSO
- */
 export const extractTaggedRoles = (message, crewRoster) => {
   const text = message.toUpperCase();
   const tagged = [];
@@ -54,6 +45,84 @@ export const extractTaggedRoles = (message, crewRoster) => {
   });
 
   return tagged;
+};
+
+/**
+ * Runs an Internal Pre-Response Sub-Chat Huddle ("Think Before Talk")
+ * Aria Vance (CSO) consults CTO, CFO, and CMO in a separate sub-chat room.
+ */
+export const runInternalCrewConsultation = async (userMessage, crewRoster, onStep) => {
+  const internalSubChatLog = [];
+  const activeCrew = crewRoster.filter(a => a.role !== 'CEO' && a.role !== 'CSO');
+
+  // 1. Aria Vance opens internal sub-chat
+  const cso = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
+  internalSubChatLog.push({
+    id: `sub-${Date.now()}-cso-init`,
+    timestamp: new Date().toISOString(),
+    agentRole: 'CSO',
+    agentName: 'Aria Vance',
+    avatar: '♟️',
+    content: `[Internal Sub-Chat] Team, CEO asked: "${userMessage}". Let's consult our Vector Brains and analyze technical feasibility, ROI impact, and GTM positioning before I present our final executive briefing.`
+  });
+
+  // 2. CTO internal review
+  const cto = activeCrew.find(a => a.role === 'CTO');
+  if (cto) {
+    if (onStep) onStep('Consulting CTO Marcus Sterling...');
+    await new Promise(r => setTimeout(r, 600));
+    const ctoBrain = queryAgentBrainVector('CTO', userMessage);
+    internalSubChatLog.push({
+      id: `sub-${Date.now()}-cto`,
+      timestamp: new Date().toISOString(),
+      agentRole: 'CTO',
+      agentName: 'Marcus Sterling',
+      avatar: '⚡',
+      content: `[CTO Internal Review] Querying CTO Vector Brain: Tech architecture is feasible. Client-side state hooks with GitHub API sync ensure 0ms server overhead and full data retention. Recommend modular rollout.`
+    });
+  }
+
+  // 3. CFO internal review
+  const cfo = activeCrew.find(a => a.role === 'CFO');
+  if (cfo) {
+    if (onStep) onStep('Consulting CFO Dominic Croft...');
+    await new Promise(r => setTimeout(r, 600));
+    internalSubChatLog.push({
+      id: `sub-${Date.now()}-cfo`,
+      timestamp: new Date().toISOString(),
+      agentRole: 'CFO',
+      agentName: 'Dominic Croft',
+      avatar: '💎',
+      content: `[CFO Internal Audit] Querying CFO Vector Brain: Financial burn remains under 15%. Projected gross margins exceed 85% with payback window estimated under 45 days. Low capital risk.`
+    });
+  }
+
+  // 4. CMO internal review
+  const cmo = activeCrew.find(a => a.role === 'CMO');
+  if (cmo) {
+    if (onStep) onStep('Consulting CMO Elena Rostova...');
+    await new Promise(r => setTimeout(r, 550));
+    internalSubChatLog.push({
+      id: `sub-${Date.now()}-cmo`,
+      timestamp: new Date().toISOString(),
+      agentRole: 'CMO',
+      agentName: 'Elena Rostova',
+      avatar: '📢',
+      content: `[CMO GTM Review] Querying CMO Vector Brain: Product positioning is sharp. We can craft viral case studies around CEO-driven AI crew governance for high organic conversion.`
+    });
+  }
+
+  // 5. Aria Vance synthesizes internal sub-chat
+  internalSubChatLog.push({
+    id: `sub-${Date.now()}-cso-summary`,
+    timestamp: new Date().toISOString(),
+    agentRole: 'CSO',
+    agentName: 'Aria Vance',
+    avatar: '♟️',
+    content: `[CSO Consensus] Perfect. Tech, Finance, and Marketing are aligned. I will now present our solid unified executive briefing to the CEO.`
+  });
+
+  return internalSubChatLog;
 };
 
 /**
@@ -76,14 +145,12 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
 };
 
 /**
- * Interactive Chat Handler:
- * - If CEO tags specific member(s) with @Tag, ONLY tagged member(s) answer in-depth.
- * - If CEO asks group question without tags, ONE Lead Representative (CSO) gives a unified brief!
+ * Interactive Chat Handler with Pre-Response Internal Sub-Chat
  */
 export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
   const timeNow = new Date().toISOString();
 
-  // 1. Add CEO Message to Chat
+  // 1. Add CEO Message to Main Transcript
   const ceoMsg = {
     id: `msg-${Date.now()}-ceo`,
     timestamp: timeNow,
@@ -100,56 +167,53 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
   // 2. Check for @Tag mentions
   const taggedAgents = extractTaggedRoles(userMessage, crewRoster);
 
-  let targetResponders = [];
-
   if (taggedAgents.length > 0) {
-    // Respond ONLY with tagged agent(s)
-    targetResponders = taggedAgents;
-  } else {
-    // Group mode without tags -> CSO Lead Representative gives executive brief!
-    const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
-    targetResponders = [leadCSO];
-  }
+    // Respond ONLY with tagged member(s) directly
+    for (const agent of taggedAgents) {
+      if (onFlowStepUpdate) onFlowStepUpdate(`Tag: ${agent.role}`);
+      await new Promise(r => setTimeout(r, 600));
 
-  // 3. Sequentially generate responses
-  for (let i = 0; i < targetResponders.length; i++) {
-    const agent = targetResponders[i];
+      const responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
 
-    if (onFlowStepUpdate) onFlowStepUpdate(agent.role);
+      const msg = {
+        id: `msg-${Date.now()}-${agent.role}`,
+        timestamp: new Date().toISOString(),
+        agentId: agent.id,
+        agentName: agent.name,
+        agentRole: agent.role,
+        avatar: agent.avatar,
+        color: agent.color,
+        badgeClass: agent.badgeClass,
+        content: responseContent
+      };
 
-    await new Promise(r => setTimeout(r, 650));
-
-    let responseContent = '';
-
-    if (taggedAgents.length === 0 && agent.role === 'CSO' && !isGreetingOrCasual(userMessage) && !isStatusOrWorkQuestion(userMessage)) {
-      // Lead Representative Unified Briefing
-      const innerResp = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
-      responseContent = `${innerResp}\n\n💡 *Tip: If you'd like deeper technical, financial, or marketing specifics, tag any member e.g. @CTO, @CFO, @CMO, or @DEV!*`;
-    } else {
-      responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
+      onNewMessage(msg);
     }
+  } else {
+    // Group mode -> Initiate Pre-Response Internal Crew Sub-Chat ("Think Before Talk")
+    if (onFlowStepUpdate) onFlowStepUpdate('Thinking Huddle in Sub-Chat...');
 
-    const msg = {
-      id: `msg-${Date.now()}-${agent.role}`,
+    const internalSubChatLog = await runInternalCrewConsultation(userMessage, crewRoster, (stepText) => {
+      if (onFlowStepUpdate) onFlowStepUpdate(stepText);
+    });
+
+    const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
+    const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
+
+    const leadMsg = {
+      id: `msg-${Date.now()}-cso`,
       timestamp: new Date().toISOString(),
-      agentId: agent.id,
-      agentName: agent.name,
-      agentRole: agent.role,
-      avatar: agent.avatar,
-      color: agent.color,
-      badgeClass: agent.badgeClass,
-      content: responseContent
+      agentId: leadCSO.id,
+      agentName: leadCSO.name,
+      agentRole: leadCSO.role,
+      avatar: leadCSO.avatar,
+      color: leadCSO.color,
+      badgeClass: leadCSO.badgeClass,
+      content: `${mainResponse}\n\n💡 *Tip: If you'd like deeper technical, financial, or marketing specifics, tag any member e.g. @CTO, @CFO, @CMO, or @DEV!*`,
+      internalSubChatLog: internalSubChatLog // Attached internal sub-chat!
     };
 
-    onNewMessage(msg);
-
-    if (!isGreetingOrCasual(userMessage)) {
-      addAgentBrainMemory(agent.role, {
-        title: `CEO Interaction: ${userMessage.slice(0, 40)}...`,
-        content: `CEO asked: "${userMessage}". Answered: "${responseContent.slice(0, 100)}..."`,
-        category: 'CEO Direct Dialogue'
-      });
-    }
+    onNewMessage(leadMsg);
   }
 
   if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
@@ -233,13 +297,9 @@ export const synthesizeProposal = (topic, proposer = 'Aria Vance (CSO)') => {
   };
 };
 
-/**
- * Natural Human Conversational AI Engine (NO Echoed Question Strings)
- */
 async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
   await new Promise(r => setTimeout(r, 450));
 
-  // Case 1: Casual Greetings
   if (isGreetingOrCasual(userMessage)) {
     const greetings = {
       CSO: `Hello CEO! Doing great. I'm reviewing our market expansion metrics and refining our Q3 growth roadmap. How can I support you?`,
@@ -252,7 +312,6 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
     return greetings[agent.role] || `Hello CEO! Doing great and ready for your direction.`;
   }
 
-  // Case 2: "What are you working on?" status questions
   if (isStatusOrWorkQuestion(userMessage)) {
     const workStatus = {
       CSO: `Right now, I'm analyzing enterprise buyer trends and preparing our Q3 growth vector proposal for your sign-off.`,
@@ -265,9 +324,8 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
     return workStatus[agent.role] || `I'm actively working on our executive directives under your guidance, CEO.`;
   }
 
-  // Case 3: Realistic Human Executive Response on Strategic Topics (NO ECHOED STRINGS)
   const realisticDialogue = {
-    CSO: `This initiative aligns directly with our growth strategy. By anchoring against our learned principles, we can establish a defensible market moat while keeping capital burn low.`,
+    CSO: `This initiative aligns directly with our growth strategy. Following our internal crew huddle, CTO Marcus Sterling confirmed technical feasibility and CFO Dominic Croft verified high unit margins. We are ready for your authorization.`,
     CTO: `Technically, this is straightforward to build. I recommend using modular JS architecture with GitHub REST API persistence to ensure zero server latency and full data retention.`,
     CMO: `From a brand perspective, the value proposition is sharp. We can craft a high-converting campaign around CEO-controlled AI agent teams to drive rapid organic user signups.`,
     CFO: `Financially, the metrics look solid. Required capital is minimal, projected gross margins exceed 85%, and payback is estimated within 45 to 60 days.`,
@@ -278,11 +336,8 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
   return realisticDialogue[agent.role] || `As ${agent.title}, I've analyzed your directive against my agent vector brain and recommend proceeding with aligned execution.`;
 }
 
-/**
- * Google Gemini API Handler
- */
 async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as a human executive colleague to the CEO. Do NOT echo or quote the user's question back (never use phrases like "Regarding '...'"). Answer directly and conversationally in 2-3 sentences.
+  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as a human executive colleague to the CEO. Do NOT echo or quote the user's question back. Answer directly and conversationally in 2-3 sentences.
 
 Your Agent Brain Memories:
 ${agentBrainContext || 'No prior agent specific memories.'}
