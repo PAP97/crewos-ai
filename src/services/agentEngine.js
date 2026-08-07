@@ -2,10 +2,9 @@ import { getRelevantMemoryContext, addMemory } from './memoryService';
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Generates role-based responses, cross-agent debates, and structured CEO proposals.
+ * Generates role-based responses, cross-agent debates, interactive CEO chat, and structured proposals.
  */
 
-// User can store API Key in localStorage for live model inference
 export const getApiKeyConfig = () => {
   try {
     const saved = localStorage.getItem('crewos_api_keys');
@@ -24,8 +23,6 @@ export const saveApiKeyConfig = (config) => {
  */
 export const generateAgentResponse = async (agent, topic, messageHistory = []) => {
   const memoryContext = getRelevantMemoryContext(topic);
-
-  // Check if live API Key is set
   const apiConfig = getApiKeyConfig();
 
   if (apiConfig.provider === 'GEMINI' && apiConfig.apiKey) {
@@ -36,8 +33,56 @@ export const generateAgentResponse = async (agent, topic, messageHistory = []) =
     }
   }
 
-  // Smart Simulated Agent Reasoning Engine (Default & Instant)
   return await simulateAgentResponse(agent, topic, memoryContext, messageHistory);
+};
+
+/**
+ * Interactive Chat: Allows CEO to message one or multiple selected crew members
+ */
+export const handleCEOChatMessage = async (userMessage, selectedAgents, topic, messageHistory, onNewMessage) => {
+  const memoryContext = getRelevantMemoryContext(userMessage);
+
+  // 1. Add CEO Message to Chat
+  const ceoMsg = {
+    id: `msg-${Date.now()}-ceo`,
+    timestamp: new Date().toISOString(),
+    agentId: 'agent-ceo',
+    agentName: 'CEO (User)',
+    agentRole: 'CEO',
+    avatar: '👑',
+    color: '#8b5cf6',
+    badgeClass: 'badge-ceo',
+    content: userMessage
+  };
+  onNewMessage(ceoMsg);
+
+  // 2. Filter out CEO from target responders
+  const targetCrew = selectedAgents.filter(a => a.role !== 'CEO');
+  if (!targetCrew.length) return;
+
+  // 3. Sequentially trigger responses from each selected crew member
+  for (const agent of targetCrew) {
+    await new Promise(r => setTimeout(r, 700));
+
+    const responseContent = await generateAgentResponse(agent, `${topic} - CEO Direct Inquiry: "${userMessage}"`, [
+      ...messageHistory,
+      ceoMsg
+    ]);
+
+    const msg = {
+      id: `msg-${Date.now()}-${agent.role}`,
+      timestamp: new Date().toISOString(),
+      agentId: agent.id,
+      agentName: agent.name,
+      agentRole: agent.role,
+      avatar: agent.avatar,
+      color: agent.color,
+      badgeClass: agent.badgeClass,
+      content: responseContent
+    };
+
+    onNewMessage(msg);
+  }
 };
 
 /**
@@ -47,7 +92,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
   const memoryContext = getRelevantMemoryContext(topic);
   const huddleMessages = [];
 
-  // Step 1: CSO sets strategic frame
   const cso = activeAgents.find(a => a.role === 'CSO') || activeAgents[0];
   if (cso) {
     const msg1 = {
@@ -66,7 +110,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
     await new Promise(r => setTimeout(r, 800));
   }
 
-  // Step 2: CTO technical perspective
   const cto = activeAgents.find(a => a.role === 'CTO');
   if (cto) {
     const msg2 = {
@@ -85,7 +128,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
     await new Promise(r => setTimeout(r, 1000));
   }
 
-  // Step 3: CFO Financial / ROI audit
   const cfo = activeAgents.find(a => a.role === 'CFO');
   if (cfo) {
     const msg3 = {
@@ -104,7 +146,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
     await new Promise(r => setTimeout(r, 900));
   }
 
-  // Step 4: CMO Growth & GTM Angle
   const cmo = activeAgents.find(a => a.role === 'CMO');
   if (cmo) {
     const msg4 = {
@@ -123,7 +164,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
     await new Promise(r => setTimeout(r, 900));
   }
 
-  // Step 5: Lead Dev Sprint breakdown
   const dev = activeAgents.find(a => a.role === 'DEV');
   if (dev) {
     const msg5 = {
@@ -141,7 +181,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
     if (onNewMessage) onNewMessage(msg5);
   }
 
-  // Automatically log key boardroom finding to shared memory!
   addMemory({
     authorId: cso ? cso.id : 'agent-cso',
     authorName: cso ? cso.name : 'Aria Vance',
@@ -156,9 +195,6 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage)
   return huddleMessages;
 };
 
-/**
- * Synthesizes a formal CEO Proposal from a discussion topic
- */
 export const synthesizeProposal = (topic, proposer = 'Aria Vance (CSO)') => {
   return {
     id: `prop-${Date.now()}`,
@@ -190,27 +226,21 @@ export const synthesizeProposal = (topic, proposer = 'Aria Vance (CSO)') => {
   };
 };
 
-/**
- * Fallback simulated LLM response logic
- */
 async function simulateAgentResponse(agent, topic, memoryContext, messageHistory) {
   await new Promise(r => setTimeout(r, 600));
 
   const roleResponses = {
-    CSO: `From a strategic perspective regarding "${topic}", we must leverage our shared memory context. Our priority is building a defensible moat with rapid execution.`,
-    CTO: `From a technical standpoint on "${topic}", the architecture must be clean, modular, and resilient. Using client-side state with GitHub API synchronization gives us high speed and complete control.`,
-    CMO: `Marketing perspective on "${topic}": The value proposition is crisp. We can create high-impact copy and position this directly to target buyers for immediate conversion.`,
-    CFO: `Financial breakdown for "${topic}": Capital allocation is lean. Risk-adjusted return is favorable with positive unit economics.`,
-    DEV: `Engineering perspective on "${topic}": Code architecture is planned. Ready to generate component files, unit tests, and GitHub CI deployment actions upon CEO approval.`,
-    PLANNER: `Project plan for "${topic}": Sprint milestones mapped into 3 phases: 1) Approval & Prep, 2) Core Build, 3) Launch & GitHub Sync.`
+    CSO: `From a strategic perspective regarding "${topic}", we should align our growth vectors with market demand and anchor against our learned charter.`,
+    CTO: `Technical perspective on "${topic}": We can architect this cleanly using modular JS components and GitHub REST persistence for reliable zero-latency execution.`,
+    CMO: `Marketing perspective on "${topic}": The value proposition is compelling. We can launch targeted campaigns with high viral potential.`,
+    CFO: `Financial audit for "${topic}": Low capital burn with high margin potential. Payback period is estimated under 60 days.`,
+    DEV: `Engineering perspective on "${topic}": Sprint tasks are mapped out. Code deliverables ready to build as soon as CEO greenlights.`,
+    PLANNER: `Project plan for "${topic}": Milestones structured into Phase 1 (Design), Phase 2 (Implementation), and Phase 3 (GitHub Deployment).`
   };
 
-  return roleResponses[agent.role] || `As ${agent.title}, I recommend proceeding with aligned execution on "${topic}" keeping our CEO governance strict.`;
+  return roleResponses[agent.role] || `As ${agent.title}, I recommend proceeding with aligned execution on "${topic}" under strict CEO governance.`;
 }
 
-/**
- * Google Gemini Live API integration helper
- */
 async function callGeminiAPI(apiKey, agent, topic, memoryContext, messageHistory) {
   const prompt = `System Prompt: ${agent.systemPrompt}
 Shared Crew Memory:
