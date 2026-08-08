@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit } from 'lucide-react';
+import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass } from 'lucide-react';
 import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal } from '../services/agentEngine';
 
 const STORAGE_CHAT_KEY = 'crewos_boardroom_chat_history';
@@ -12,7 +12,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const [activeFlowStep, setActiveFlowStep] = useState(null);
   const [expandedSubChatId, setExpandedSubChatId] = useState(null);
 
-  // Selected crew members for conversation
+  // Selected crew members for manual conversation override
   const [selectedAgentRoles, setSelectedAgentRoles] = useState(
     crewRoster.filter(a => a.role !== 'CEO').map(a => a.role)
   );
@@ -73,7 +73,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     if (!topic.trim() || isHuddling) return;
 
     setIsHuddling(true);
-    setActiveFlowStep('STARTING');
+    setActiveFlowStep('Convening Boardroom Huddle...');
 
     const activeCrew = crewRoster.filter(a => selectedAgentRoles.includes(a.role));
 
@@ -99,7 +99,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     const inputMsg = userChatInput;
     setUserChatInput('');
     setIsHuddling(true);
-    setActiveFlowStep('CEO');
+    setActiveFlowStep('Aria Vance Evaluating Query...');
 
     await handleCEOChatMessage(
       inputMsg,
@@ -144,11 +144,11 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5" /> Interactive CEO & Pre-Response Thinking Huddle
+              <Sparkles className="w-3.5 h-3.5" /> Intelligent Dynamic Crew Routing
             </div>
-            <h2 className="text-2xl font-bold text-white">Boardroom Briefings & Internal Sub-Chats</h2>
+            <h2 className="text-2xl font-bold text-white">Boardroom Briefings & Smart Crew Selection</h2>
             <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-              When you ask general questions, Lead Representative Aria Vance consults the team in a separate internal sub-chat ("Think Before Talk") before delivering her unified answer!
+              Lead Representative <strong>Aria Vance (CSO)</strong> evaluates your queries dynamically — delivering direct answers for simple chats, or consulting ONLY the relevant specialists for technical/financial topics!
             </p>
           </div>
 
@@ -200,7 +200,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
             ) : (
               <>
                 <Play className="w-4 h-4 fill-white" />
-                Convene Full Crew Huddle
+                Convene Full Boardroom Huddle
               </>
             )}
           </button>
@@ -211,29 +211,32 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
       <div className="glass-panel p-4 border-slate-800 bg-slate-950/60 space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
           <span className="flex items-center gap-1.5 text-purple-400">
-            <Activity className="w-4 h-4" /> CEO Request Flow & Routing Tracker
+            <Activity className="w-4 h-4" /> CEO Request Flow & Smart Routing Tracker
           </span>
           {activeFlowStep && (
             <span className="text-emerald-400 font-mono flex items-center gap-1 text-[11px] animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Active: {activeFlowStep}
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Status: {activeFlowStep}
             </span>
           )}
         </div>
 
         {/* Stepper Pipeline */}
         <div className="flex items-center gap-2 overflow-x-auto py-2 pr-2">
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap ${
-            activeFlowStep === 'CEO' || activeFlowStep === 'STARTING'
-              ? 'bg-purple-950 border-purple-500 text-purple-200 glow-purple animate-pulse'
-              : 'bg-slate-900 border-slate-800 text-slate-300'
-          }`}>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500 bg-purple-950 text-purple-200 text-xs font-semibold whitespace-nowrap shadow-md">
             <span>👑</span> CEO Request
           </div>
 
           <span className="text-slate-600 font-bold">➔</span>
 
-          {crewRoster.filter(a => a.role !== 'CEO').map((agent, idx) => {
-            const isActive = activeFlowStep === agent.role || (activeFlowStep && activeFlowStep.includes(agent.role));
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/80 bg-cyan-950/40 text-cyan-300 text-xs font-semibold whitespace-nowrap">
+            <Compass className="w-3.5 h-3.5" />
+            <span>Aria Vance (CSO) Smart Routing</span>
+          </div>
+
+          <span className="text-slate-600 font-bold">➔</span>
+
+          {crewRoster.filter(a => a.role !== 'CEO' && a.role !== 'CSO').map((agent, idx) => {
+            const isActive = activeFlowStep && (activeFlowStep.includes(agent.role) || activeFlowStep.includes(agent.name));
 
             return (
               <React.Fragment key={agent.role}>
@@ -245,7 +248,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   <span>{agent.avatar}</span>
                   <span>{agent.role}</span>
                 </div>
-                {idx < crewRoster.length - 2 && <span className="text-slate-600 font-bold">➔</span>}
+                {idx < crewRoster.length - 3 && <span className="text-slate-600 font-bold">➔</span>}
               </React.Fragment>
             );
           })}
@@ -288,9 +291,9 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
 
           <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
             <span className="font-bold text-slate-300 flex items-center gap-1">
-              <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" /> Internal Crew Sub-Chat
+              <Compass className="w-3.5 h-3.5 text-cyan-400" /> Smart Lead Routing
             </span>
-            <p>Group questions trigger an internal background sub-chat where crew members consult their Vector Brains before talking!</p>
+            <p>Aria Vance automatically selects only the relevant specialists for each query. Tag with @Role for direct member answers!</p>
           </div>
         </div>
 
@@ -352,7 +355,14 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                       {msg.content}
                     </p>
 
-                    {/* Expandable Internal Sub-Chat Drawer ("Think Before Talk") */}
+                    {/* Routing Reasoning Badge if present */}
+                    {msg.routingReasoning && (
+                      <div className="ml-9 text-[10px] text-cyan-400/80 font-mono flex items-center gap-1">
+                        <Compass className="w-3 h-3 text-cyan-400" /> Routing Decision: {msg.routingReasoning}
+                      </div>
+                    )}
+
+                    {/* Expandable Internal Sub-Chat Drawer */}
                     {msg.internalSubChatLog && msg.internalSubChatLog.length > 0 && (
                       <div className="mt-3 pt-2 border-t border-slate-800/80">
                         <button
@@ -362,7 +372,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                         >
                           <span className="flex items-center gap-1.5">
                             <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
-                            Inspect Internal Crew Thinking Huddle ({msg.internalSubChatLog.length} Sub-Messages)
+                            Inspect Targeted Sub-Chat ({msg.internalSubChatLog.length} Sub-Messages)
                           </span>
                           {expandedSubChatId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
@@ -370,7 +380,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                         {expandedSubChatId === msg.id && (
                           <div className="mt-2 p-3 bg-slate-950/90 rounded-xl border border-cyan-500/30 space-y-2 text-xs animate-fadeIn">
                             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                              <span>Raw Sub-Chat Consultation Transcript</span>
+                              <span>Specialist Consultation Transcript</span>
                               <span className="text-cyan-400 font-mono text-[10px]">Vector Brain Queries Included</span>
                             </div>
                             {msg.internalSubChatLog.map((subMsg) => (
@@ -419,7 +429,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   type="text"
                   value={userChatInput}
                   onChange={(e) => setUserChatInput(e.target.value)}
-                  placeholder="Ask a question or tag a member (e.g. @CTO how is tech stack? or @CFO what is burn rate?)..."
+                  placeholder="Ask a question or tag a member (e.g. @CTO how is database security? or @CFO what is burn rate?)..."
                   className="flex-1 text-xs py-2.5 bg-slate-900 border border-slate-700/90 rounded-xl"
                   disabled={isHuddling}
                 />

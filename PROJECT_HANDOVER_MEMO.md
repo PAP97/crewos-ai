@@ -38,7 +38,7 @@
 ### 1. Resume Live Web Hosting
 Run the following command in terminal:
 ```bash
-node deploy_ghpages.js
+`node deploy_ghpages.js`
 ```
 This will build production assets and bring your website back online at `https://pap97.github.io/crewos-ai/` in ~10 seconds!
 

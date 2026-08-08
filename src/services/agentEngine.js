@@ -3,7 +3,7 @@ import { queryAgentBrainVector, addAgentBrainMemory } from './agentBrainService'
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Features Pre-Response Internal Crew Sub-Chat ("Think Before Talk"), Vector Brain Queries, and @Tag Mentions.
+ * Features Dynamic Crew Selection & Intelligent Huddle Routing by Aria Vance (CSO).
  */
 
 export const getApiKeyConfig = () => {
@@ -48,78 +48,135 @@ export const extractTaggedRoles = (message, crewRoster) => {
 };
 
 /**
- * Runs an Internal Pre-Response Sub-Chat Huddle ("Think Before Talk")
- * Aria Vance (CSO) consults CTO, CFO, and CMO in a separate sub-chat room.
+ * Intelligent Query Evaluator & Crew Selector by Aria Vance (CSO)
+ * Evaluates whether an internal huddle is needed, and which specific crew members to consult.
  */
-export const runInternalCrewConsultation = async (userMessage, crewRoster, onStep) => {
-  const internalSubChatLog = [];
-  const activeCrew = crewRoster.filter(a => a.role !== 'CEO' && a.role !== 'CSO');
+export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
+  const t = userMessage.toLowerCase().trim();
 
-  // 1. Aria Vance opens internal sub-chat
-  const cso = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
+  // 1. Casual / Greetings / Simple Chat -> Direct Answer (No huddle needed)
+  if (isGreetingOrCasual(t) || t.length < 10) {
+    return {
+      intent: 'DIRECT_ANSWER',
+      reasoning: 'Direct conversational reply (No internal huddle needed)',
+      selectedRoles: []
+    };
+  }
+
+  // 2. Targeted Technical Queries -> CTO only
+  const techKeywords = ['tech', 'architecture', 'database', 'security', 'api', 'server', 'code', 'latency', 'stack', 'github', 'bug', 'performance'];
+  const hasTech = techKeywords.some(k => t.includes(k));
+
+  // 3. Targeted Financial Queries -> CFO only
+  const finKeywords = ['cost', 'price', 'budget', 'revenue', 'finance', 'roi', 'burn', 'margin', 'payback', 'capital', 'financial'];
+  const hasFin = finKeywords.some(k => t.includes(k));
+
+  // 4. Targeted Marketing Queries -> CMO only
+  const mktKeywords = ['market', 'campaign', 'brand', 'gtm', 'social', 'user', 'customer', 'acquisition', 'copy', 'launch'];
+  const hasMkt = mktKeywords.some(k => t.includes(k));
+
+  // 5. Targeted Development Queries -> DEV only
+  const devKeywords = ['sprint', 'feature', 'ticket', 'build', 'implement', 'dev', 'component'];
+  const hasDev = devKeywords.some(k => t.includes(k));
+
+  // Count active domains
+  const activeDomains = [hasTech, hasFin, hasMkt, hasDev].filter(Boolean).length;
+
+  if (activeDomains > 1 || t.includes('initiative') || t.includes('strategy') || t.includes('plan') || t.includes('launch enterprise')) {
+    // Multi-department strategic query
+    const roles = [];
+    if (hasTech) roles.push('CTO');
+    if (hasFin) roles.push('CFO');
+    if (hasMkt) roles.push('CMO');
+    if (hasDev) roles.push('DEV');
+    if (roles.length === 0) roles.push('CTO', 'CFO'); // Default strategic pair
+
+    return {
+      intent: 'MULTI_DEPARTMENT',
+      reasoning: `Multi-department consultation required (${roles.join(', ')})`,
+      selectedRoles: roles
+    };
+  }
+
+  if (hasTech) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting CTO Marcus Sterling for Technical Audit', selectedRoles: ['CTO'] };
+  if (hasFin) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting CFO Dominic Croft for Financial Audit', selectedRoles: ['CFO'] };
+  if (hasMkt) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting CMO Elena Rostova for Marketing Audit', selectedRoles: ['CMO'] };
+  if (hasDev) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting Lead Dev Devin Cole for Technical Implementation', selectedRoles: ['DEV'] };
+
+  // Default Status / General inquiry
+  if (isStatusOrWorkQuestion(t)) {
+    return {
+      intent: 'DIRECT_ANSWER',
+      reasoning: 'Status overview briefing (Direct Answer)',
+      selectedRoles: []
+    };
+  }
+
+  return {
+    intent: 'DIRECT_ANSWER',
+    reasoning: 'Direct Executive Reply',
+    selectedRoles: []
+  };
+};
+
+/**
+ * Runs a Dynamic Internal Pre-Response Sub-Chat Huddle
+ * Aria Vance consults ONLY the dynamically selected specialists.
+ */
+export const runInternalCrewConsultation = async (userMessage, crewRoster, selectedRoles, onStep) => {
+  const internalSubChatLog = [];
+  const targetCrew = crewRoster.filter(a => selectedRoles.includes(a.role));
+
+  if (!targetCrew.length) return [];
+
+  // 1. Aria Vance opens internal sub-chat with chosen specialists
   internalSubChatLog.push({
     id: `sub-${Date.now()}-cso-init`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
     agentName: 'Aria Vance',
     avatar: '♟️',
-    content: `[Internal Sub-Chat] Team, CEO asked: "${userMessage}". Let's consult our Vector Brains and analyze technical feasibility, ROI impact, and GTM positioning before I present our final executive briefing.`
+    content: `[Internal Sub-Chat] Team, CEO asked: "${userMessage}". Consulting specialists (${selectedRoles.join(', ')}) to verify our Vector Brain memories before presenting our briefing.`
   });
 
-  // 2. CTO internal review
-  const cto = activeCrew.find(a => a.role === 'CTO');
-  if (cto) {
-    if (onStep) onStep('Consulting CTO Marcus Sterling...');
-    await new Promise(r => setTimeout(r, 600));
-    const ctoBrain = queryAgentBrainVector('CTO', userMessage);
-    internalSubChatLog.push({
-      id: `sub-${Date.now()}-cto`,
-      timestamp: new Date().toISOString(),
-      agentRole: 'CTO',
-      agentName: 'Marcus Sterling',
-      avatar: '⚡',
-      content: `[CTO Internal Review] Querying CTO Vector Brain: Tech architecture is feasible. Client-side state hooks with GitHub API sync ensure 0ms server overhead and full data retention. Recommend modular rollout.`
-    });
-  }
-
-  // 3. CFO internal review
-  const cfo = activeCrew.find(a => a.role === 'CFO');
-  if (cfo) {
-    if (onStep) onStep('Consulting CFO Dominic Croft...');
-    await new Promise(r => setTimeout(r, 600));
-    internalSubChatLog.push({
-      id: `sub-${Date.now()}-cfo`,
-      timestamp: new Date().toISOString(),
-      agentRole: 'CFO',
-      agentName: 'Dominic Croft',
-      avatar: '💎',
-      content: `[CFO Internal Audit] Querying CFO Vector Brain: Financial burn remains under 15%. Projected gross margins exceed 85% with payback window estimated under 45 days. Low capital risk.`
-    });
-  }
-
-  // 4. CMO internal review
-  const cmo = activeCrew.find(a => a.role === 'CMO');
-  if (cmo) {
-    if (onStep) onStep('Consulting CMO Elena Rostova...');
+  // 2. Consult each selected specialist
+  for (const agent of targetCrew) {
+    if (onStep) onStep(`Consulting ${agent.role} ${agent.name}...`);
     await new Promise(r => setTimeout(r, 550));
+
+    const brainContext = queryAgentBrainVector(agent.role, userMessage);
+    let specialistContent = '';
+
+    if (agent.role === 'CTO') {
+      specialistContent = `[CTO Tech Audit] Querying CTO Vector Brain: Architecture is feasible. Modular client state with GitHub REST persistence ensures zero latency and full retention.`;
+    } else if (agent.role === 'CFO') {
+      specialistContent = `[CFO Financial Audit] Querying CFO Vector Brain: Financial burn is under control. Estimated payback period remains under 60 days with >80% gross margins.`;
+    } else if (agent.role === 'CMO') {
+      specialistContent = `[CMO GTM Review] Querying CMO Vector Brain: Product positioning is sharp. High organic conversion expected around CEO governance storytelling.`;
+    } else if (agent.role === 'DEV') {
+      specialistContent = `[DEV Implementation Review] Querying DEV Vector Brain: Sprint tickets mapped. Ready to generate code assets and push tickets to GitHub.`;
+    } else {
+      specialistContent = `[${agent.role} Internal Review] Querying ${agent.role} Vector Brain: Domain analysis aligned with company goals.`;
+    }
+
     internalSubChatLog.push({
-      id: `sub-${Date.now()}-cmo`,
+      id: `sub-${Date.now()}-${agent.role.toLowerCase()}`,
       timestamp: new Date().toISOString(),
-      agentRole: 'CMO',
-      agentName: 'Elena Rostova',
-      avatar: '📢',
-      content: `[CMO GTM Review] Querying CMO Vector Brain: Product positioning is sharp. We can craft viral case studies around CEO-driven AI crew governance for high organic conversion.`
+      agentRole: agent.role,
+      agentName: agent.name,
+      avatar: agent.avatar,
+      content: specialistContent
     });
   }
 
-  // 5. Aria Vance synthesizes internal sub-chat
+  // 3. Aria Vance summary
   internalSubChatLog.push({
     id: `sub-${Date.now()}-cso-summary`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
     agentName: 'Aria Vance',
     avatar: '♟️',
-    content: `[CSO Consensus] Perfect. Tech, Finance, and Marketing are aligned. I will now present our solid unified executive briefing to the CEO.`
+    content: `[CSO Consensus] Perfect. Consulted specialists (${selectedRoles.join(', ')}) aligned. Presenting unified executive briefing to CEO.`
   });
 
   return internalSubChatLog;
@@ -145,7 +202,7 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
 };
 
 /**
- * Interactive Chat Handler with Pre-Response Internal Sub-Chat
+ * Interactive Chat Handler with Dynamic Routing by Aria Vance
  */
 export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
   const timeNow = new Date().toISOString();
@@ -164,14 +221,14 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
   };
   onNewMessage(ceoMsg);
 
-  // 2. Check for @Tag mentions
+  // 2. Check for explicit CEO @Tag mentions
   const taggedAgents = extractTaggedRoles(userMessage, crewRoster);
 
   if (taggedAgents.length > 0) {
     // Respond ONLY with tagged member(s) directly
     for (const agent of taggedAgents) {
-      if (onFlowStepUpdate) onFlowStepUpdate(`Tag: ${agent.role}`);
-      await new Promise(r => setTimeout(r, 600));
+      if (onFlowStepUpdate) onFlowStepUpdate(`Tag: @${agent.role}`);
+      await new Promise(r => setTimeout(r, 550));
 
       const responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
 
@@ -189,39 +246,59 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
 
       onNewMessage(msg);
     }
-  } else {
-    // Group mode -> Initiate Pre-Response Internal Crew Sub-Chat ("Think Before Talk")
-    if (onFlowStepUpdate) onFlowStepUpdate('Thinking Huddle in Sub-Chat...');
-
-    const internalSubChatLog = await runInternalCrewConsultation(userMessage, crewRoster, (stepText) => {
-      if (onFlowStepUpdate) onFlowStepUpdate(stepText);
-    });
-
-    const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
-    const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
-
-    const leadMsg = {
-      id: `msg-${Date.now()}-cso`,
-      timestamp: new Date().toISOString(),
-      agentId: leadCSO.id,
-      agentName: leadCSO.name,
-      agentRole: leadCSO.role,
-      avatar: leadCSO.avatar,
-      color: leadCSO.color,
-      badgeClass: leadCSO.badgeClass,
-      content: `${mainResponse}\n\n💡 *Tip: If you'd like deeper technical, financial, or marketing specifics, tag any member e.g. @CTO, @CFO, @CMO, or @DEV!*`,
-      internalSubChatLog: internalSubChatLog // Attached internal sub-chat!
-    };
-
-    onNewMessage(leadMsg);
+    if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
+    return;
   }
+
+  // 3. Dynamic Evaluation by Aria Vance (CSO)
+  const evaluation = analyzeQueryIntentAndSelectCrew(userMessage, crewRoster);
+  
+  if (onFlowStepUpdate) {
+    onFlowStepUpdate(`Aria Vance: ${evaluation.reasoning}`);
+  }
+
+  let internalSubChatLog = [];
+
+  if (evaluation.selectedRoles.length > 0) {
+    // Internal consultation needed with ONLY selected specialists
+    internalSubChatLog = await runInternalCrewConsultation(
+      userMessage, 
+      crewRoster, 
+      evaluation.selectedRoles, 
+      (stepText) => {
+        if (onFlowStepUpdate) onFlowStepUpdate(stepText);
+      }
+    );
+  }
+
+  // Lead Representative Aria Vance responds
+  const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[1];
+  const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
+
+  let finalContent = mainResponse;
+  if (evaluation.selectedRoles.length > 0) {
+    finalContent += `\n\n💡 *Tip: Consulted specialists (${evaluation.selectedRoles.join(', ')}). Tag any member e.g. @CTO, @CFO, @CMO, or @DEV for deep details!*`;
+  }
+
+  const leadMsg = {
+    id: `msg-${Date.now()}-cso`,
+    timestamp: new Date().toISOString(),
+    agentId: leadCSO.id,
+    agentName: leadCSO.name,
+    agentRole: leadCSO.role,
+    avatar: leadCSO.avatar,
+    color: leadCSO.color,
+    badgeClass: leadCSO.badgeClass,
+    content: finalContent,
+    internalSubChatLog: internalSubChatLog.length > 0 ? internalSubChatLog : null,
+    routingReasoning: evaluation.reasoning
+  };
+
+  onNewMessage(leadMsg);
 
   if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
 };
 
-/**
- * Simulates real-time boardroom huddle debate amongst selected crew members
- */
 export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage, onFlowStepUpdate) => {
   const huddleMessages = [];
 
@@ -325,7 +402,7 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
   }
 
   const realisticDialogue = {
-    CSO: `This initiative aligns directly with our growth strategy. Following our internal crew huddle, CTO Marcus Sterling confirmed technical feasibility and CFO Dominic Croft verified high unit margins. We are ready for your authorization.`,
+    CSO: `This initiative aligns directly with our growth strategy. Following our internal crew consultation, team members confirmed technical feasibility and high unit margins. We are ready for your authorization.`,
     CTO: `Technically, this is straightforward to build. I recommend using modular JS architecture with GitHub REST API persistence to ensure zero server latency and full data retention.`,
     CMO: `From a brand perspective, the value proposition is sharp. We can craft a high-converting campaign around CEO-controlled AI agent teams to drive rapid organic user signups.`,
     CFO: `Financially, the metrics look solid. Required capital is minimal, projected gross margins exceed 85%, and payback is estimated within 45 to 60 days.`,
