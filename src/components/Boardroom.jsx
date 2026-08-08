@@ -1,11 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass, AlertCircle, CheckCircle2, RefreshCw, GitPullRequest, Briefcase } from 'lucide-react';
-import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal, getApiKeyConfig } from '../services/agentEngine';
+import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass, AlertCircle, CheckCircle2, RefreshCw, GitPullRequest, Briefcase, Plus, Hash, Lock, Search, Paperclip, Mic, X } from 'lucide-react';
+import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal } from '../services/agentEngine';
 import { syncSubTaskToGitHubProjects, auditSubTaskQuality } from '../services/cooWorkflowService';
 
 const STORAGE_CHAT_KEY = 'crewos_boardroom_chat_history';
+const STORAGE_CHANNELS_KEY = 'crewos_boardroom_channels';
+
+const DEFAULT_CHANNELS = [
+  {
+    id: 'chan-general',
+    name: 'executive-boardroom',
+    description: 'Main C-suite operational channel for all executive directives and huddling.',
+    isPrivate: false,
+    members: ['CEO', 'COO', 'CSO', 'CTO', 'CMO', 'CFO', 'DEV']
+  },
+  {
+    id: 'chan-ceo-coo',
+    name: 'ceo-coo-direct-line',
+    description: 'Direct operational channel between CEO and COO Orion Vance.',
+    isPrivate: true,
+    members: ['CEO', 'COO']
+  },
+  {
+    id: 'chan-tech',
+    name: 'tech-and-architecture',
+    description: 'Technical audits, code sprints, and system infrastructure.',
+    isPrivate: false,
+    members: ['CEO', 'COO', 'CTO', 'DEV']
+  },
+  {
+    id: 'chan-finance',
+    name: 'finance-and-gtm',
+    description: 'Budget allocation, payback modeling, and GTM marketing campaigns.',
+    isPrivate: false,
+    members: ['CEO', 'COO', 'CFO', 'CMO']
+  }
+];
 
 export default function Boardroom({ crewRoster, onProposalGenerated }) {
+  const [channels, setChannels] = useState(DEFAULT_CHANNELS);
+  const [activeChannelId, setActiveChannelId] = useState('chan-general');
   const [topic, setTopic] = useState('');
   const [userChatInput, setUserChatInput] = useState('');
   const [isHuddling, setIsHuddling] = useState(false);
@@ -15,34 +49,73 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const [expandedSubTasksId, setExpandedSubTasksId] = useState(null);
   const [ghSyncStatus, setGhSyncStatus] = useState({});
 
-  // Selected crew members for manual conversation override
-  const [selectedAgentRoles, setSelectedAgentRoles] = useState(
-    crewRoster.filter(a => a.role !== 'CEO').map(a => a.role)
+  // New Channel Creation Modal State
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelDesc, setNewChannelDesc] = useState('');
+  const [selectedChannelMembers, setSelectedChannelMembers] = useState(
+    crewRoster.map(a => a.role)
   );
 
-  // Load chat history on mount
+  // Load chat history & custom channels on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_CHAT_KEY);
-      if (saved) {
-        setHuddleMessages(JSON.parse(saved));
-      }
+      const savedChat = localStorage.getItem(STORAGE_CHAT_KEY);
+      if (savedChat) setHuddleMessages(JSON.parse(savedChat));
+
+      const savedChan = localStorage.getItem(STORAGE_CHANNELS_KEY);
+      if (savedChan) setChannels(JSON.parse(savedChan));
     } catch (e) {
-      console.warn('Failed to load chat history:', e);
+      console.warn('Failed to load chat/channels from storage:', e);
     }
   }, []);
 
-  // Persist chat history on updates
+  // Persist chat history & channels
   useEffect(() => {
     if (huddleMessages.length > 0) {
       localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(huddleMessages));
     }
   }, [huddleMessages]);
 
+  useEffect(() => {
+    if (channels.length > 0) {
+      localStorage.setItem(STORAGE_CHANNELS_KEY, JSON.stringify(channels));
+    }
+  }, [channels]);
+
+  const activeChannel = channels.find(c => c.id === activeChannelId) || channels[0];
+
   const handleClearChatHistory = () => {
-    if (window.confirm('Clear current Boardroom transcript history?')) {
-      setHuddleMessages([]);
-      localStorage.removeItem(STORAGE_CHAT_KEY);
+    if (window.confirm('Clear transcript history for this channel?')) {
+      setHuddleMessages(prev => prev.filter(m => m.channelId !== activeChannelId));
+    }
+  };
+
+  const handleCreateChannelSubmit = (e) => {
+    e.preventDefault();
+    if (!newChannelName.trim()) return;
+
+    const formattedName = newChannelName.toLowerCase().replace(/\s+/g, '-');
+    const newChan = {
+      id: `chan-${Date.now()}`,
+      name: formattedName,
+      description: newChannelDesc.trim() || 'Custom Executive Group Channel',
+      isPrivate: false,
+      members: Array.from(new Set(['CEO', ...selectedChannelMembers]))
+    };
+
+    setChannels(prev => [...prev, newChan]);
+    setActiveChannelId(newChan.id);
+    setNewChannelName('');
+    setNewChannelDesc('');
+    setIsCreateChannelOpen(false);
+  };
+
+  const toggleMemberSelection = (role) => {
+    if (selectedChannelMembers.includes(role)) {
+      setSelectedChannelMembers(selectedChannelMembers.filter(r => r !== role));
+    } else {
+      setSelectedChannelMembers([...selectedChannelMembers, role]);
     }
   };
 
@@ -66,15 +139,15 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     if (!topic.trim() || isHuddling) return;
 
     setIsHuddling(true);
-    setActiveFlowStep('Convening Full Boardroom Huddle...');
+    setActiveFlowStep('Convening Boardroom Huddle...');
 
-    const activeCrew = crewRoster.filter(a => selectedAgentRoles.includes(a.role));
+    const activeCrew = crewRoster.filter(a => activeChannel.members.includes(a.role) && a.role !== 'CEO');
 
     await simulateBoardroomHuddle(
       activeCrew, 
       topic, 
       (newMessage) => {
-        setHuddleMessages(prev => [...prev, newMessage]);
+        setHuddleMessages(prev => [...prev, { ...newMessage, channelId: activeChannelId }]);
       },
       (stepRole) => {
         setActiveFlowStep(stepRole);
@@ -94,13 +167,15 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     setIsHuddling(true);
     setActiveFlowStep('COO Orion Vance: Processing CEO Directive...');
 
+    const channelCrew = crewRoster.filter(a => activeChannel.members.includes(a.role));
+
     await handleCEOChatMessage(
       inputMsg,
-      crewRoster,
+      channelCrew,
       topic || 'Strategic Q&A',
-      huddleMessages,
+      huddleMessages.filter(m => m.channelId === activeChannelId),
       (newMsg) => {
-        setHuddleMessages(prev => [...prev, newMsg]);
+        setHuddleMessages(prev => [...prev, { ...newMsg, channelId: activeChannelId }]);
       },
       (stepRole) => {
         setActiveFlowStep(stepRole);
@@ -117,7 +192,6 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
 
       const updatedTasks = msg.subTasks.map(st => {
         if (st.id !== taskId) return st;
-        // Re-audit with forced GOOD QA pass
         return auditSubTaskQuality(st, 'GOOD PASS: Rework complete.');
       });
 
@@ -161,445 +235,474 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const formatTimestamp = (isoString) => {
     if (!isoString) return '';
     const date = new Date(isoString);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (isToday) return `Today at ${timeStr}`;
-    return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${timeStr}`;
+    return timeStr;
   };
+
+  // Filter messages for active channel
+  const currentChannelMessages = huddleMessages.filter(
+    m => !m.channelId || m.channelId === activeChannelId
+  );
 
   return (
     <div className="space-y-6">
       
-      {/* Header Banner */}
-      <div className="glass-panel p-6 border-purple-500/20 relative overflow-hidden">
-        <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5" /> COO Liaison & Closed-Loop QA Re-Assignment
-            </div>
-            <h2 className="text-2xl font-bold text-white">Executive Operations & Sub-Task Audit</h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-              <strong>COO Orion Vance</strong> clarifies requirements with you, briefs <strong>Aria Vance (CSO)</strong> to bifurcate sub-tasks for GitHub Projects, and executes closed-loop QA audits with automatic sub-task re-assignment!
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {huddleMessages.length > 0 && (
-              <button
-                onClick={handleClearChatHistory}
-                className="btn-secondary text-xs text-rose-300 hover:text-rose-200 border-rose-500/30"
-                title="Clear saved chat history"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Clear History
-              </button>
-            )}
-
-            {huddleMessages.length > 0 && !isHuddling && (
-              <button
-                onClick={handleSynthesizeProposal}
-                className="btn-primary animate-bounce shadow-lg shadow-purple-600/40"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Submit to CEO Approval Queue
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Input Form for New Huddle Topic */}
-        <form onSubmit={handleStartHuddle} className="mt-6 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Launch an enterprise subscription tier for automated agent workflows..."
-              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-              disabled={isHuddling}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={!topic.trim() || isHuddling}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            {isHuddling ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                Crew Processing...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                Convene Full Boardroom Huddle
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-
-      {/* Visual CEO Directive Routing Tracker */}
-      <div className="glass-panel p-4 border-slate-800 bg-slate-950/60 space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
-          <span className="flex items-center gap-1.5 text-purple-400">
-            <Activity className="w-4 h-4" /> Closed-Loop Executive Operational Stepper
-          </span>
-          {activeFlowStep && (
-            <span className="text-emerald-400 font-mono flex items-center gap-1 text-[11px] animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Status: {activeFlowStep}
-            </span>
-          )}
-        </div>
-
-        {/* Stepper Pipeline */}
-        <div className="flex items-center gap-2 overflow-x-auto py-2 pr-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500 bg-purple-950 text-purple-200 text-xs font-semibold whitespace-nowrap shadow-md">
-            <span>👑</span> CEO Request
-          </div>
-
-          <span className="text-slate-600 font-bold">➔</span>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/80 bg-sky-950/40 text-sky-300 text-xs font-semibold whitespace-nowrap">
-            <Briefcase className="w-3.5 h-3.5" />
-            <span>COO Orion Vance (Clarification)</span>
-          </div>
-
-          <span className="text-slate-600 font-bold">➔</span>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/80 bg-cyan-950/40 text-cyan-300 text-xs font-semibold whitespace-nowrap">
-            <GitPullRequest className="w-3.5 h-3.5" />
-            <span>Aria Vance (CSO Sub-Tasks & QA Audit)</span>
-          </div>
-
-          <span className="text-slate-600 font-bold">➔</span>
-
-          {crewRoster.filter(a => a.role !== 'CEO' && a.role !== 'COO' && a.role !== 'CSO').map((agent, idx) => {
-            const isActive = activeFlowStep && (activeFlowStep.includes(agent.role) || activeFlowStep.includes(agent.name));
-
-            return (
-              <React.Fragment key={agent.role}>
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'bg-purple-900/80 border-purple-400 text-white shadow-lg shadow-purple-500/30 animate-bounce'
-                    : 'bg-slate-900/80 border-slate-800 text-slate-400 opacity-80'
-                }`}>
-                  <span>{agent.avatar}</span>
-                  <span>{agent.role}</span>
-                </div>
-                {idx < crewRoster.length - 4 && <span className="text-slate-600 font-bold">➔</span>}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Boardroom Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* Teams Style Boardroom Main Layout */}
+      <div className="glass-panel border-slate-800 bg-slate-950/90 rounded-2xl overflow-hidden shadow-2xl flex flex-col lg:flex-row min-h-[640px]">
         
-        {/* Left: Crew Roster Quick Access */}
-        <div className="lg:col-span-1 space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Executive Roster ({crewRoster.length - 1})
-            </h3>
-          </div>
-
-          <div className="space-y-2">
-            {crewRoster.filter(a => a.role !== 'CEO').map(agent => (
-              <div 
-                key={agent.id}
-                onClick={() => handleTagAgentInput(agent.role)}
-                className="glass-card p-3 flex items-center gap-3 cursor-pointer transition-all border border-slate-800 hover:border-purple-500/80 hover:bg-purple-950/20"
-                title={`Click to tag @${agent.role}`}
-              >
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base bg-slate-900 border border-slate-700">
-                  {agent.avatar}
+        {/* Left Teams Sidebar: Channels & Group Chats */}
+        <div className="lg:w-80 border-r border-slate-800/90 bg-slate-900/60 flex flex-col justify-between">
+          
+          <div>
+            {/* Teams Header */}
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                  T
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-white truncate">{agent.name}</h4>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-1">
+                    CrewOS Teams Workspace
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">MS Teams Style Command</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsCreateChannelOpen(true)}
+                className="w-7 h-7 rounded-lg bg-purple-600/30 hover:bg-purple-600 border border-purple-500/40 text-purple-200 hover:text-white flex items-center justify-center transition-all"
+                title="Create New Channel / Group Chat"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Channels List */}
+            <div className="p-3 space-y-1">
+              <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Executive Channels ({channels.length})</span>
+                <span className="text-purple-400 text-[10px] font-mono">Live Sync</span>
+              </div>
+
+              <div className="space-y-1">
+                {channels.map((chan) => {
+                  const isActive = chan.id === activeChannelId;
+                  return (
+                    <button
+                      key={chan.id}
+                      onClick={() => setActiveChannelId(chan.id)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center justify-between ${
+                        isActive
+                          ? 'bg-purple-600/30 border border-purple-500/50 text-white font-semibold shadow-md'
+                          : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        {chan.isPrivate ? <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" /> : <Hash className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
+                        <span className="text-xs truncate">{chan.name}</span>
+                      </div>
+
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {chan.members.length}👥
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Active Channel Roster Preview */}
+            <div className="p-3 border-t border-slate-800/80">
+              <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Group Members ({activeChannel.members.length})
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {crewRoster.filter(a => activeChannel.members.includes(a.role)).map(agent => (
+                  <div 
+                    key={agent.id}
+                    onClick={() => handleTagAgentInput(agent.role)}
+                    className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-purple-950/30 cursor-pointer text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{agent.avatar}</span>
+                      <span className="text-slate-300 font-medium">{agent.name}</span>
+                    </div>
                     <span className={`badge ${agent.badgeClass} text-[9px] px-1.5 py-0.2`}>{agent.role}</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 truncate">{agent.title}</p>
-                </div>
-                <span className="text-[11px] text-purple-400 font-mono font-bold">+@</span>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
 
-          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+          {/* Sidebar Footer */}
+          <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400 space-y-1">
             <span className="font-bold text-slate-300 flex items-center gap-1">
-              <Briefcase className="w-3.5 h-3.5 text-sky-400" /> Executive COO Liaison
+              <Briefcase className="w-3.5 h-3.5 text-sky-400" /> Intellectual COO Orion Vance
             </span>
-            <p>COO Orion Vance clarifies directive requirements, Aria Vance splits sub-tasks & audits QA, re-assigning sub-tasks if quality fails!</p>
+            <p>Backed by dedicated Vector Brain memories. Clarifies requirements & dispatches sub-tasks.</p>
           </div>
         </div>
 
-        {/* Right: Live Interactive Boardroom Stream & Chat Box */}
-        <div className="lg:col-span-3">
-          <div className="glass-panel p-6 min-h-[480px] flex flex-col justify-between">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+        {/* Right Teams Main Chat Area */}
+        <div className="flex-1 flex flex-col justify-between bg-slate-950/80">
+          
+          {/* Teams Channel Header */}
+          <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900/40">
+            <div>
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-purple-400" />
-                <h3 className="text-sm font-bold text-white">Live Boardroom Operational Transcript</h3>
+                <Hash className="w-4 h-4 text-purple-400" />
+                <h3 className="text-base font-bold text-white">{activeChannel.name}</h3>
+                <span className="badge badge-cso text-[10px]">{activeChannel.members.length} Members</span>
               </div>
-              {huddleMessages.length > 0 && (
-                <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-cyan-400" /> {huddleMessages.length} Messages Logged
-                </span>
-              )}
+              <p className="text-xs text-slate-400 mt-0.5">{activeChannel.description}</p>
             </div>
 
-            {/* Message Stream */}
-            <div className="flex-1 space-y-4 overflow-y-auto max-h-[440px] pr-2">
-              {huddleMessages.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center p-6 text-slate-500">
-                  <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-3 text-2xl">
-                    🏛️
-                  </div>
-                  <h4 className="text-sm font-medium text-slate-300">Boardroom Transcript Empty</h4>
-                  <p className="text-xs max-w-sm mt-1">
-                    Convene a huddle above or type a directive below to start COO operational synchronization.
-                  </p>
+            <div className="flex items-center gap-2">
+              {currentChannelMessages.length > 0 && (
+                <button
+                  onClick={handleClearChatHistory}
+                  className="btn-secondary text-[11px] py-1 px-2.5 text-rose-300 border-rose-500/30"
+                  title="Clear channel transcript"
+                >
+                  <Trash2 className="w-3 h-3" /> Clear
+                </button>
+              )}
+
+              {currentChannelMessages.length > 0 && !isHuddling && (
+                <button
+                  onClick={handleSynthesizeProposal}
+                  className="btn-primary text-xs py-1.5 px-3"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" /> Proposal
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Stepper Status Banner if Active */}
+          {activeFlowStep && (
+            <div className="bg-purple-950/40 border-b border-purple-500/30 px-4 py-2 text-xs text-purple-200 flex items-center justify-between font-mono animate-pulse">
+              <span className="flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5 text-emerald-400" /> {activeFlowStep}
+              </span>
+              <span className="text-[10px] text-cyan-400">Processing Intent</span>
+            </div>
+          )}
+
+          {/* Teams / WhatsApp Style Chat Window with Right/Left Alignment */}
+          <div className="flex-1 p-4 lg:p-6 overflow-y-auto max-h-[500px] space-y-4">
+            {currentChannelMessages.length === 0 ? (
+              <div className="h-64 flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-3 text-2xl">
+                  💬
                 </div>
-              ) : (
-                huddleMessages.map((msg) => (
+                <h4 className="text-sm font-medium text-slate-300">Welcome to #{activeChannel.name}</h4>
+                <p className="text-xs max-w-sm mt-1">
+                  Start the conversation below. CEO messages appear on the right; Crew responses appear on the left!
+                </p>
+              </div>
+            ) : (
+              currentChannelMessages.map((msg) => {
+                const isCEO = msg.agentRole === 'CEO';
+
+                return (
                   <div 
                     key={msg.id} 
-                    className={`glass-card p-4 space-y-2 border-slate-800/80 ${
-                      msg.agentRole === 'CEO' ? 'border-l-4 border-l-purple-500 bg-purple-950/20' : ''
-                    } ${msg.isClarificationRequest ? 'border-l-4 border-l-sky-400 bg-sky-950/20' : ''}`}
+                    className={`flex flex-col ${isCEO ? 'items-end' : 'items-start'} space-y-1`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xl">{msg.avatar}</span>
-                        <div>
-                          <span className="text-sm font-semibold text-white">{msg.agentName}</span>
-                          <span className="text-xs text-slate-400 ml-2">({msg.agentRole})</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          {formatTimestamp(msg.timestamp)}
-                        </span>
-                        <span className={`badge ${msg.badgeClass}`}>{msg.agentRole}</span>
-                      </div>
+                    {/* Header line */}
+                    <div className={`flex items-center gap-2 text-xs text-slate-400 px-1 ${isCEO ? 'flex-row-reverse' : ''}`}>
+                      <span className="font-semibold text-slate-300">{msg.agentName}</span>
+                      <span className={`badge ${msg.badgeClass} text-[9px] px-1.5 py-0.2`}>{msg.agentRole}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{formatTimestamp(msg.timestamp)}</span>
                     </div>
-                    
-                    <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line pl-9">
-                      {msg.content}
-                    </p>
 
-                    {/* Sub-Task Bifurcation & QA Audit Accordion */}
-                    {msg.subTasks && msg.subTasks.length > 0 && (
-                      <div className="ml-9 mt-3 pt-3 border-t border-slate-800/80 space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleSubTasksExpand(msg.id)}
-                          className="flex items-center justify-between w-full text-xs font-semibold text-purple-300 bg-slate-900/90 px-3 py-2 rounded-lg border border-slate-800 hover:border-purple-500/40 transition-all"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <GitPullRequest className="w-3.5 h-3.5 text-purple-400" />
-                            Aria Vance Sub-Task Bifurcation & QA Audit ({msg.subTasks.length} Sub-Tasks)
-                          </span>
-                          {expandedSubTasksId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
+                    {/* Chat Bubble: CEO on RIGHT (purple), Crew on LEFT (dark glass) */}
+                    <div className={`max-w-[85%] lg:max-w-[75%] rounded-2xl p-4 space-y-2 shadow-lg transition-all ${
+                      isCEO
+                        ? 'bg-gradient-to-r from-purple-700 to-indigo-700 text-white rounded-tr-none border border-purple-400/30'
+                        : msg.isClarificationRequest
+                        ? 'bg-sky-950/90 border border-sky-500/50 text-sky-100 rounded-tl-none'
+                        : 'bg-slate-900/90 border border-slate-800 text-slate-100 rounded-tl-none'
+                    }`}>
+                      <p className="text-sm leading-relaxed whitespace-pre-line">
+                        {msg.content}
+                      </p>
 
-                        {expandedSubTasksId === msg.id && (
-                          <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 space-y-3 text-xs animate-fadeIn">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                              <span>Sub-Task Work Breakdown & Closed-Loop QA</span>
-                              <span className="text-purple-400 font-mono text-[10px]">GitHub Projects Integration</span>
-                            </div>
+                      {/* Sub-Task Bifurcation Accordion */}
+                      {msg.subTasks && msg.subTasks.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-white/10 space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleSubTasksExpand(msg.id)}
+                            className="flex items-center justify-between w-full text-xs font-semibold text-purple-300 bg-slate-950/60 px-3 py-2 rounded-lg border border-slate-800 hover:border-purple-500/40 transition-all"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <GitPullRequest className="w-3.5 h-3.5 text-purple-400" />
+                              Sub-Task Work Breakdown & QA Audit ({msg.subTasks.length} Sub-Tasks)
+                            </span>
+                            {expandedSubTasksId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
 
-                            <div className="space-y-2">
-                              {msg.subTasks.map((st) => (
-                                <div key={st.id} className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`badge ${st.badgeClass} text-[10px]`}>{st.assigneeRole}</span>
-                                      <span className="font-semibold text-white text-xs">{st.title}</span>
+                          {expandedSubTasksId === msg.id && (
+                            <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 space-y-3 text-xs text-left animate-fadeIn">
+                              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                                <span>Sub-Task Work Breakdown & QA</span>
+                                <span className="text-purple-400 font-mono text-[10px]">GitHub Projects Integration</span>
+                              </div>
+
+                              <div className="space-y-2">
+                                {msg.subTasks.map((st) => (
+                                  <div key={st.id} className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`badge ${st.badgeClass} text-[10px]`}>{st.assigneeRole}</span>
+                                        <span className="font-semibold text-white text-xs">{st.title}</span>
+                                      </div>
+
+                                      {st.status === 'COMPLETED' ? (
+                                        <span className="badge badge-cfo text-[10px] flex items-center gap-1">
+                                          <CheckCircle2 className="w-3 h-3" /> QA PASSED
+                                        </span>
+                                      ) : (
+                                        <span className="badge badge-cmo text-[10px] flex items-center gap-1 animate-pulse">
+                                          <AlertCircle className="w-3 h-3" /> REASSIGNED (QA FAILED)
+                                        </span>
+                                      )}
                                     </div>
 
-                                    {st.status === 'COMPLETED' ? (
-                                      <span className="badge badge-cfo text-[10px] flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3" /> QA PASSED
-                                      </span>
-                                    ) : (
-                                      <span className="badge badge-cmo text-[10px] flex items-center gap-1 animate-pulse">
-                                        <AlertCircle className="w-3 h-3" /> REASSIGNED (QA FAILED)
-                                      </span>
-                                    )}
-                                  </div>
+                                    <p className="text-[11px] text-slate-400">{st.description}</p>
 
-                                  <p className="text-[11px] text-slate-400">{st.description}</p>
+                                    {st.qaAudit && (
+                                      <div className={`p-2 rounded border text-[11px] ${
+                                        st.qaAudit.passed 
+                                          ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
+                                          : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
+                                      }`}>
+                                        <div className="font-bold flex items-center justify-between">
+                                          <span>Audited by {st.qaAudit.auditedBy}</span>
+                                          <span className="text-[9px] opacity-75 font-mono">{formatTimestamp(st.qaAudit.auditedAt)}</span>
+                                        </div>
+                                        <p className="mt-0.5">{st.qaAudit.feedback}</p>
 
-                                  {/* QA Audit Feedback */}
-                                  {st.qaAudit && (
-                                    <div className={`p-2 rounded border text-[11px] ${
-                                      st.qaAudit.passed 
-                                        ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
-                                        : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
-                                    }`}>
-                                      <div className="font-bold flex items-center justify-between">
-                                        <span>Audited by {st.qaAudit.auditedBy}</span>
-                                        <span className="text-[9px] opacity-75 font-mono">{formatTimestamp(st.qaAudit.auditedAt)}</span>
+                                        {!st.qaAudit.passed && (
+                                          <button
+                                            onClick={() => handleReAuditSubTask(msg.id, st.id)}
+                                            className="mt-2 btn-secondary text-[10px] py-1 px-2.5 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/40 flex items-center gap-1"
+                                          >
+                                            <RefreshCw className="w-3 h-3" /> Re-Submit for QA Audit
+                                          </button>
+                                        )}
                                       </div>
-                                      <p className="mt-0.5">{st.qaAudit.feedback}</p>
+                                    )}
 
-                                      {!st.qaAudit.passed && (
-                                        <button
-                                          onClick={() => handleReAuditSubTask(msg.id, st.id)}
-                                          className="mt-2 btn-secondary text-[10px] py-1 px-2.5 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/40 flex items-center gap-1"
+                                    <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                                      <span className="text-[10px] text-slate-500 font-mono">Assigned to: {st.assigneeName}</span>
+                                      
+                                      {st.githubIssueUrl ? (
+                                        <a
+                                          href={st.githubIssueUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-[10px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
                                         >
-                                          <RefreshCw className="w-3 h-3" /> Re-Submit for QA Audit
+                                          <GitPullRequest className="w-3 h-3" /> View GitHub Project Issue
+                                        </a>
+                                      ) : (
+                                        <button
+                                          onClick={() => handlePushSubTaskToGitHub(st.id, st)}
+                                          disabled={ghSyncStatus[st.id] === 'syncing'}
+                                          className="text-[10px] text-purple-300 hover:text-purple-200 font-mono flex items-center gap-1 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/30"
+                                        >
+                                          <GitPullRequest className="w-3 h-3" /> 
+                                          {ghSyncStatus[st.id] === 'syncing' ? 'Syncing...' : 'Log on GitHub Projects'}
                                         </button>
                                       )}
                                     </div>
-                                  )}
-
-                                  {/* GitHub Push Action */}
-                                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
-                                    <span className="text-[10px] text-slate-500 font-mono">Assigned to: {st.assigneeName}</span>
-                                    
-                                    {st.githubIssueUrl ? (
-                                      <a
-                                        href={st.githubIssueUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-[10px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
-                                      >
-                                        <GitPullRequest className="w-3 h-3" /> View GitHub Project Issue
-                                      </a>
-                                    ) : (
-                                      <button
-                                        onClick={() => handlePushSubTaskToGitHub(st.id, st)}
-                                        disabled={ghSyncStatus[st.id] === 'syncing'}
-                                        className="text-[10px] text-purple-300 hover:text-purple-200 font-mono flex items-center gap-1 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/30"
-                                      >
-                                        <GitPullRequest className="w-3 h-3" /> 
-                                        {ghSyncStatus[st.id] === 'syncing' ? 'Syncing...' : 'Log on GitHub Projects'}
-                                      </button>
-                                    )}
                                   </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Internal Sub-Chat Drawer */}
+                      {msg.internalSubChatLog && msg.internalSubChatLog.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => toggleSubChatExpand(msg.id)}
+                            className="flex items-center justify-between w-full text-xs font-semibold text-cyan-300 bg-slate-950/60 px-3 py-2 rounded-lg border border-slate-800 hover:border-cyan-500/40 transition-all"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
+                              Inspect Internal Thinking Sub-Chat ({msg.internalSubChatLog.length} Sub-Messages)
+                            </span>
+                            {expandedSubChatId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+
+                          {expandedSubChatId === msg.id && (
+                            <div className="mt-2 p-3 bg-slate-950/90 rounded-xl border border-cyan-500/30 space-y-2 text-xs text-left animate-fadeIn">
+                              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                <span>Specialist Consultation Transcript</span>
+                                <span className="text-cyan-400 font-mono text-[10px]">Vector Brain Queries Included</span>
+                              </div>
+                              {msg.internalSubChatLog.map((subMsg) => (
+                                <div key={subMsg.id} className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-semibold text-slate-200 flex items-center gap-1">
+                                      <span>{subMsg.avatar}</span> {subMsg.agentName} ({subMsg.agentRole})
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 font-mono">{formatTimestamp(subMsg.timestamp)}</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-300 leading-relaxed font-mono">{subMsg.content}</p>
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Expandable Internal Sub-Chat Drawer */}
-                    {msg.internalSubChatLog && msg.internalSubChatLog.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-slate-800/80 pl-9">
-                        <button
-                          type="button"
-                          onClick={() => toggleSubChatExpand(msg.id)}
-                          className="flex items-center justify-between w-full text-xs font-semibold text-cyan-400 bg-slate-900/90 px-3 py-2 rounded-lg border border-slate-800 hover:border-cyan-500/40 transition-all"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
-                            Inspect Internal Thinking Sub-Chat ({msg.internalSubChatLog.length} Sub-Messages)
-                          </span>
-                          {expandedSubChatId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-
-                        {expandedSubChatId === msg.id && (
-                          <div className="mt-2 p-3 bg-slate-950/90 rounded-xl border border-cyan-500/30 space-y-2 text-xs animate-fadeIn">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                              <span>Specialist Consultation Transcript</span>
-                              <span className="text-cyan-400 font-mono text-[10px]">Vector Brain Queries Included</span>
-                            </div>
-                            {msg.internalSubChatLog.map((subMsg) => (
-                              <div key={subMsg.id} className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                                <div className="flex items-center justify-between text-[11px]">
-                                  <span className="font-semibold text-slate-200 flex items-center gap-1">
-                                    <span>{subMsg.avatar}</span> {subMsg.agentName} ({subMsg.agentRole})
-                                  </span>
-                                  <span className="text-[10px] text-slate-500 font-mono">{formatTimestamp(subMsg.timestamp)}</span>
-                                </div>
-                                <p className="text-[11px] text-slate-300 leading-relaxed font-mono">{subMsg.content}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* CEO Interactive Chat Bar with Quick @Tags */}
-            <div className="mt-4 pt-4 border-t border-slate-800 space-y-2.5">
-              
-              {/* Quick Tag Pills */}
-              <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-400">
-                <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
-                  <AtSign className="w-3 h-3 text-purple-400" /> Tag Member:
-                </span>
-                {crewRoster.filter(a => a.role !== 'CEO').map(agent => (
-                  <button
-                    key={agent.role}
-                    type="button"
-                    onClick={() => handleTagAgentInput(agent.role)}
-                    className="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-purple-950/60 border border-slate-800 hover:border-purple-500/40 text-[11px] font-mono text-purple-300 transition-all flex items-center gap-1"
-                  >
-                    <span>{agent.avatar}</span> @{agent.role}
-                  </button>
-                ))}
-              </div>
-
-              <form onSubmit={handleSendCEOMessage} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={userChatInput}
-                  onChange={(e) => setUserChatInput(e.target.value)}
-                  placeholder="Ask COO Orion Vance or tag a member (e.g. @COO launch B2B tier or @CTO database status)..."
-                  className="flex-1 text-xs py-2.5 bg-slate-900 border border-slate-700/90 rounded-xl"
-                  disabled={isHuddling}
-                />
-                <button
-                  type="submit"
-                  disabled={!userChatInput.trim() || isHuddling}
-                  className="btn-primary text-xs py-2.5 px-4 disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" /> Speak as CEO
-                </button>
-              </form>
-
-              {/* Proposal Banner */}
-              {huddleMessages.length > 0 && !isHuddling && (
-                <div className="flex items-center justify-between bg-purple-950/20 p-3 rounded-xl border border-purple-500/20">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">Consensus Formulated</h4>
-                      <p className="text-[11px] text-slate-400">Ready to create a formal proposal for CEO authorization.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <button
-                    onClick={handleSynthesizeProposal}
-                    className="btn-approve text-xs"
-                  >
-                    Create CEO Proposal <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
+                );
+              })
+            )}
+          </div>
+
+          {/* Teams Style Interactive Message Input Bar */}
+          <div className="p-4 border-t border-slate-800 bg-slate-900/60 space-y-2.5">
+            
+            {/* Quick @Tag Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-400">
+              <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                <AtSign className="w-3 h-3 text-purple-400" /> Tag Member:
+              </span>
+              {crewRoster.filter(a => activeChannel.members.includes(a.role) && a.role !== 'CEO').map(agent => (
+                <button
+                  key={agent.role}
+                  type="button"
+                  onClick={() => handleTagAgentInput(agent.role)}
+                  className="px-2 py-0.5 rounded-md bg-slate-950 hover:bg-purple-950/60 border border-slate-800 hover:border-purple-500/40 text-[11px] font-mono text-purple-300 transition-all flex items-center gap-1"
+                >
+                  <span>{agent.avatar}</span> @{agent.role}
+                </button>
+              ))}
             </div>
 
+            <form onSubmit={handleSendCEOMessage} className="flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl p-2 focus-within:border-purple-500 transition-all">
+              <input
+                type="text"
+                value={userChatInput}
+                onChange={(e) => setUserChatInput(e.target.value)}
+                placeholder={`Message #${activeChannel.name} or tag @COO Orion Vance...`}
+                className="flex-1 bg-transparent text-xs py-1.5 px-2 text-white placeholder-slate-500 focus:outline-none"
+                disabled={isHuddling}
+              />
+
+              <div className="flex items-center gap-1 text-slate-500 px-1">
+                <Paperclip className="w-4 h-4 cursor-pointer hover:text-slate-300" title="Attach file" />
+                <Mic className="w-4 h-4 cursor-pointer hover:text-slate-300" title="Voice note" />
+              </div>
+
+              <button
+                type="submit"
+                disabled={!userChatInput.trim() || isHuddling}
+                className="btn-primary text-xs py-2 px-3.5 disabled:opacity-50 flex items-center gap-1 shadow-md"
+              >
+                <Send className="w-3.5 h-3.5" /> Send
+              </button>
+            </form>
           </div>
+
         </div>
 
       </div>
+
+      {/* Modal: Create Custom Group Channel */}
+      {isCreateChannelOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-panel p-6 max-w-md w-full border-purple-500/40 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Plus className="w-5 h-5 text-purple-400" /> Create Custom Group / Channel
+              </h3>
+              <button 
+                onClick={() => setIsCreateChannelOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateChannelSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">Channel Name</label>
+                <input
+                  type="text"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  placeholder="e.g. marketing-sprint or finance-audit"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">Description (Optional)</label>
+                <input
+                  type="text"
+                  value={newChannelDesc}
+                  onChange={(e) => setNewChannelDesc(e.target.value)}
+                  placeholder="e.g. Dedicated channel for CMO & Lead Dev launch sprints"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300">Assign Group Members</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {crewRoster.filter(a => a.role !== 'CEO').map(agent => {
+                    const isSelected = selectedChannelMembers.includes(agent.role);
+                    return (
+                      <div
+                        key={agent.role}
+                        onClick={() => toggleMemberSelection(agent.role)}
+                        className={`p-2 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
+                          isSelected
+                            ? 'bg-purple-950/80 border-purple-500 text-white'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>{agent.avatar}</span> {agent.name}
+                        </span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateChannelOpen(false)}
+                  className="btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary text-xs"
+                >
+                  Create Channel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
