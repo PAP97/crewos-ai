@@ -1,11 +1,13 @@
 import { getRelevantMemoryContext, addMemory } from './memoryService';
 import { queryAgentBrainVector, addAgentBrainMemory } from './agentBrainService';
-import { evaluateCEOIntentAndClarify, bifurcateDirectiveIntoSubTasks, auditSubTaskQuality } from './cooWorkflowService';
+import { evaluateCEOIntentAndClarify } from './cooWorkflowService';
+import { analyzeCompanyFeasibilityAndPrerequisites, bifurcateProjectIntoAgileSprints, executeIterativeQAReworkLoop } from './businessAnalystService';
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Powered by Antigravity AI Intelligence for Orion Vance (COO) & Aria Vance (CSO).
- * Ensures casual chats ("hi", "hello") receive clean, human conversational replies without task bloat.
+ * Features Company Prerequisites & Hiring Feasibility Analysis,
+ * Aria Vance Lead Business Analyst (BA) Agile Sprint Planning,
+ * and Iterative To-and-Fro QA Rework Loops.
  */
 
 export const getApiKeyConfig = () => {
@@ -49,13 +51,9 @@ export const extractTaggedRoles = (message, crewRoster) => {
   return tagged;
 };
 
-/**
- * Intelligent Query Evaluator & Crew Selector by Aria Vance (CSO)
- */
 export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
   const t = userMessage.toLowerCase().trim();
 
-  // 1. Casual / Greetings -> Direct Conversational Reply (No task bifurcation or huddle)
   if (isGreetingOrCasual(t) || t.length < 10) {
     return {
       intent: 'DIRECT_ANSWER',
@@ -64,8 +62,7 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
     };
   }
 
-  // Domain checks
-  const techKeywords = ['tech', 'architecture', 'database', 'security', 'api', 'server', 'code', 'latency', 'stack', 'github', 'bug', 'performance'];
+  const techKeywords = ['tech', 'architecture', 'database', 'security', 'api', 'server', 'code', 'latency', 'stack', 'github', 'bug', 'performance', 'website', 'app'];
   const hasTech = techKeywords.some(k => t.includes(k));
 
   const finKeywords = ['cost', 'price', 'budget', 'revenue', 'finance', 'roi', 'burn', 'margin', 'payback', 'capital', 'financial'];
@@ -79,7 +76,7 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
 
   const activeDomains = [hasTech, hasFin, hasMkt, hasDev].filter(Boolean).length;
 
-  if (activeDomains > 1 || t.includes('initiative') || t.includes('strategy') || t.includes('plan') || t.includes('launch enterprise') || t.includes('build feature')) {
+  if (activeDomains > 1 || t.includes('initiative') || t.includes('strategy') || t.includes('plan') || t.includes('launch enterprise') || t.includes('build architecture') || t.includes('website')) {
     const roles = [];
     if (hasTech) roles.push('CTO');
     if (hasFin) roles.push('CFO');
@@ -89,7 +86,7 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
 
     return {
       intent: 'MULTI_DEPARTMENT',
-      reasoning: `Multi-department consultation required (${roles.join(', ')})`,
+      reasoning: `Company-wide strategic directive (${roles.join(', ')})`,
       selectedRoles: roles
     };
   }
@@ -114,9 +111,6 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
   };
 };
 
-/**
- * Runs a Dynamic Internal Pre-Response Sub-Chat Huddle
- */
 export const runInternalCrewConsultation = async (userMessage, crewRoster, selectedRoles, onStep) => {
   const internalSubChatLog = [];
   const targetCrew = crewRoster.filter(a => selectedRoles.includes(a.role));
@@ -127,9 +121,9 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     id: `sub-${Date.now()}-cso-init`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
-    agentName: 'Aria Vance',
+    agentName: 'Aria Vance (Lead BA)',
     avatar: '♟️',
-    content: `[Internal Sub-Chat] Hey team, CEO asked: "${userMessage}". Querying our Vector Brains before presenting our final briefing.`
+    content: `[Internal Consultation] Team, CEO asked: "${userMessage}". Let's evaluate prerequisites (space, tools, hiring) and query our Vector Brains before creating our Agile Sprint Plan.`
   });
 
   for (const agent of targetCrew) {
@@ -139,15 +133,15 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     let specialistContent = '';
 
     if (agent.role === 'CTO') {
-      specialistContent = `[CTO Tech Audit] Marcus here: Tech architecture is solid. Client state hooks + GitHub API give us zero latency and full uptime.`;
+      specialistContent = `[CTO Feasibility & Space] Marcus here: Dev space and staging tools are ready. Staging environment will simulate production builds continuously.`;
     } else if (agent.role === 'CFO') {
-      specialistContent = `[CFO Financial Audit] Dominic here: Unit economics look strong. Operating burn is low and gross margins will exceed 85%.`;
+      specialistContent = `[CFO Capital & Hiring] Dominic here: Budget is allocated. If we need specialized contractors, our runway covers them with >85% margins.`;
     } else if (agent.role === 'CMO') {
-      specialistContent = `[CMO GTM Review] Elena here: Positioning is sharp! Storytelling around founder control and AI governance will drive strong organic acquisition.`;
+      specialistContent = `[CMO Positioning] Elena here: GTM story is mapped. Customer stories and launch collateral will run in parallel with Sprint 2.`;
     } else if (agent.role === 'DEV') {
-      specialistContent = `[DEV Implementation Review] Devin here: Code sprint ready. Reactive components and sub-tasks are queued for GitHub.`;
+      specialistContent = `[DEV Sprint Readiness] Devin here: Component contracts structured. Ready for Sprint 1 setup and Sprint 2 feature coding.`;
     } else {
-      specialistContent = `[${agent.role} Internal Review] Vector Brain check complete: Aligned with team goals.`;
+      specialistContent = `[${agent.role} Internal Review] Vector Brain check complete: Prerequisites aligned.`;
     }
 
     internalSubChatLog.push({
@@ -164,17 +158,14 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     id: `sub-${Date.now()}-cso-summary`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
-    agentName: 'Aria Vance',
+    agentName: 'Aria Vance (Lead BA)',
     avatar: '♟️',
-    content: `[CSO Consensus] Consulted specialists (${selectedRoles.join(', ')}) aligned. Presenting executive briefing to Orion and CEO.`
+    content: `[BA Consensus] Consulted specialists (${selectedRoles.join(', ')}). Company feasibility verified. Presenting Agile Sprint Plan to Orion & CEO.`
   });
 
   return internalSubChatLog;
 };
 
-/**
- * Generates an executive response from a specific crew member powered by Antigravity AI reasoning
- */
 export const generateAgentResponse = async (agent, userMessage, messageHistory = []) => {
   const globalMemoryContext = getRelevantMemoryContext(userMessage);
   const agentBrainContext = queryAgentBrainVector(agent.role, userMessage);
@@ -191,9 +182,6 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
   return await simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory);
 };
 
-/**
- * Interactive Chat Handler with Antigravity AI Power for Orion Vance & Aria Vance
- */
 export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
   const timeNow = new Date().toISOString();
 
@@ -211,14 +199,13 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
   };
   onNewMessage(ceoMsg);
 
-  // 2. Check for Casual Greetings / Simple Chat
+  // 2. Check for Casual Greetings
   const isCasual = isGreetingOrCasual(userMessage);
 
   if (isCasual) {
     if (onFlowStepUpdate) onFlowStepUpdate('Orion Vance & Aria Vance (Antigravity AI)');
     await new Promise(r => setTimeout(r, 400));
 
-    // Choose Orion Vance or Aria Vance to reply casually
     const cooAgent = crewRoster.find(a => a.role === 'COO') || crewRoster[1];
     const responseContent = await generateAgentResponse(cooAgent, userMessage, [...messageHistory, ceoMsg]);
 
@@ -232,8 +219,9 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
       color: cooAgent.color,
       badgeClass: cooAgent.badgeClass,
       content: responseContent,
-      subTasks: null, // NO sub-tasks for casual chat!
-      internalSubChatLog: null
+      subTasks: null,
+      internalSubChatLog: null,
+      companyFeasibility: null
     };
 
     onNewMessage(msg);
@@ -241,7 +229,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 3. COO Requirement Clarification for ambiguous strategic tasks
+  // 3. COO Requirement Clarification for ambiguous requests
   const cooAgent = crewRoster.find(a => a.role === 'COO') || crewRoster[1];
   const clarificationCheck = evaluateCEOIntentAndClarify(userMessage);
 
@@ -258,9 +246,10 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
       avatar: cooAgent.avatar,
       color: cooAgent.color,
       badgeClass: cooAgent.badgeClass,
-      content: `Hey CEO! Orion here ☕. Love where your head is at with "${userMessage}". To make sure Aria and the team hit the bullseye on the first try, could you help me lock down two quick details?\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nDrop your thoughts and I'll immediately brief Aria to bifurcate the sub-tasks and get GitHub moving!`,
+      content: `Hey CEO! Orion here ☕. Love where your head is at with "${userMessage}". To make sure Aria Vance (Lead BA) and the team hit the bullseye on the first try, could you help me lock down two quick details?\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nDrop your thoughts and I'll immediately brief Aria to analyze prerequisites and bifurcate our Agile Sprints!`,
       isClarificationRequest: true,
-      subTasks: null
+      subTasks: null,
+      companyFeasibility: null
     };
 
     onNewMessage(cooClarificationMsg);
@@ -288,7 +277,8 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
         color: agent.color,
         badgeClass: agent.badgeClass,
         content: responseContent,
-        subTasks: null
+        subTasks: null,
+        companyFeasibility: null
       };
 
       onNewMessage(msg);
@@ -297,8 +287,8 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 5. Strategic Initiatives -> Sub-Task Bifurcation & QA Audit
-  if (onFlowStepUpdate) onFlowStepUpdate('COO Orion Vance ➔ Briefing Aria Vance (CSO)');
+  // 5. Strategic Directives -> Company Prerequisites Analysis + Business Analyst Agile Sprints
+  if (onFlowStepUpdate) onFlowStepUpdate('COO Orion & Aria Vance (Lead BA): Company Prerequisites Analysis');
   await new Promise(r => setTimeout(r, 450));
 
   const evaluation = analyzeQueryIntentAndSelectCrew(userMessage, crewRoster);
@@ -315,27 +305,17 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     );
   }
 
-  // Generate Sub-Tasks ONLY for multi-department strategic directives!
-  let auditedSubTasks = null;
-  if (evaluation.intent === 'MULTI_DEPARTMENT' || userMessage.length > 30) {
-    const rawSubTasks = bifurcateDirectiveIntoSubTasks(topic || userMessage, userMessage);
-    auditedSubTasks = rawSubTasks.map(st => auditSubTaskQuality(st));
-  }
+  // Company Prerequisites & Talent Hiring Analysis
+  const companyFeasibility = analyzeCompanyFeasibilityAndPrerequisites(topic || userMessage);
+
+  // Aria Vance (Lead Business Analyst) Agile Sprint Breakdown
+  const agileSprints = bifurcateProjectIntoAgileSprints(topic || userMessage, userMessage);
 
   const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[2];
   const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
 
-  let finalContent = `[Briefed via COO Orion Vance]\n${mainResponse}`;
-  
-  if (auditedSubTasks) {
-    const reAssignedTasks = auditedSubTasks.filter(st => st.status === 'REASSIGNED_NEEDS_REVISION');
-    if (reAssignedTasks.length > 0) {
-      finalContent += `\n\n⚠️ *Quality Notice*: Audited sub-tasks and noticed ${reAssignedTasks.length} needed extra polish. Sent back to the team with specific notes:\n`;
-      reAssignedTasks.forEach(st => {
-        finalContent += `• **${st.title}** (${st.assigneeRole}): ${st.qaAudit.feedback}\n`;
-      });
-    }
-  }
+  let finalContent = `[Briefed via COO Orion Vance & Aria Vance (Lead BA)]\n${mainResponse}`;
+  finalContent += `\n\n📌 **Company Prerequisites & BA Sprint Breakdown**: Project analyzed like an executive team. Review prerequisites (Dev space, QA tools, talent hiring) and Agile Sprints below.`;
 
   const leadMsg = {
     id: `msg-${Date.now()}-cso`,
@@ -348,7 +328,8 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     badgeClass: leadCSO.badgeClass,
     content: finalContent,
     internalSubChatLog: internalSubChatLog.length > 0 ? internalSubChatLog : null,
-    subTasks: auditedSubTasks,
+    companyFeasibility,
+    agileSprints,
     routingReasoning: evaluation.reasoning
   };
 
@@ -401,7 +382,10 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage,
   return huddleMessages;
 };
 
-export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria Vance (CSO)') => {
+export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria Vance (Lead BA)') => {
+  const companyFeasibility = analyzeCompanyFeasibilityAndPrerequisites(topic);
+  const agileSprints = bifurcateProjectIntoAgileSprints(topic, 'Proposal execution');
+
   return {
     id: `prop-${Date.now()}`,
     createdAt: new Date().toISOString(),
@@ -410,24 +394,24 @@ export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria V
     proposerRole: 'COO',
     category: 'Strategic Initiative',
     status: 'PENDING_APPROVAL',
-    summary: `Detailed strategic initiative created following COO requirement clarification and Aria Vance sub-task bifurcation on "${topic}". Requires CEO authorization to proceed with capital allocation and deployment.`,
+    summary: `Detailed strategic initiative created following Company Prerequisites Analysis (Space, Testing Tools, Talent Gaps) and Aria Vance (Lead BA) Agile Sprint Breakdown on "${topic}". Requires CEO authorization to proceed.`,
     financialImpact: {
-      budgetRequired: '$3,500',
-      estimatedRevenue: '$28,000 / month',
+      budgetRequired: '$4,500',
+      estimatedRevenue: '$32,000 / month',
       paybackPeriod: '1.2 Months'
     },
-    riskAssessment: 'Low Risk — High market demand with rapid prototyping capability.',
+    riskAssessment: 'Low Risk — Prerequisites verified with automated testing & sprint QA rework loops.',
+    companyFeasibility,
+    agileSprints,
     deliverables: [
-      `Production implementation plan for ${topic}`,
-      'Technical architecture specification & API design',
-      'Multi-channel GTM campaign launch assets',
-      'GitHub Projects issue sub-task tracking & automated backup'
+      `Sprint 1: Dev Space, Staging Environment & Architecture Prerequisites`,
+      `Sprint 2: Reactive Components & Core Engineering Sprints`,
+      `Sprint 3: End-to-End Penetration Test, QA Audit & Production Release`
     ],
-    subTasks: bifurcateDirectiveIntoSubTasks(topic, 'Proposal execution breakdown').map(st => auditSubTaskQuality(st)),
     agentReviews: [
-      { role: 'COO', comment: 'CEO requirements clarified and aligned across all executive departments.' },
-      { role: 'CSO', comment: 'Sub-tasks bifurcated and QA quality control audited.' },
-      { role: 'CTO', comment: 'Tech stack selected for high concurrency, zero setup, and full memory retention.' },
+      { role: 'COO', comment: 'Prerequisites analyzed. Team, space, and tools are aligned.' },
+      { role: 'CSO', comment: 'Agile Sprints bifurcated with user stories and iterative QA rework loops.' },
+      { role: 'CTO', comment: 'Staging environment and client-side architecture verified.' },
       { role: 'CFO', comment: 'Budget approved. Unit margins exceed 85%.' },
       { role: 'CMO', comment: 'Messaging position finalized. High organic customer acquisition expected.' }
     ]
@@ -439,12 +423,11 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
 
   const lower = userMessage.toLowerCase();
 
-  // Clean Casual Greetings & Conversations (Antigravity AI Persona Tone)
   if (isGreetingOrCasual(userMessage)) {
     if (lower.includes('coffee')) {
       const coffeeResponses = {
-        COO: `Orion Vance (COO): Hey CEO! I'm on my third espresso of the day ☕. Keeping all our executive threads and operations synchronized. How's your cup holding up?`,
-        CSO: `Aria Vance (CSO): Hey CEO! Coffee levels are optimal ☕. Nothing fuels high-level strategy and market analysis quite like a fresh brew! What are we working on today?`,
+        COO: `Orion Vance (COO): Hey CEO! I'm on my third espresso of the day ☕. Keeping all our executive threads, prerequisites, and operations synchronized. How's your cup holding up?`,
+        CSO: `Aria Vance (Lead BA): Hey CEO! Coffee levels are optimal ☕. Nothing fuels high-level Agile sprint planning and market analysis quite like a fresh brew! What are we working on today?`,
         CTO: `Marcus Sterling (CTO): Converting caffeine directly into clean React code and zero-latency architecture ⚡☕!`,
         CMO: `Elena Rostova (CMO): Oat milk latte in hand and GTM launch stories ready 📢!`,
         CFO: `Dominic Croft (CFO): ROC (Return on Coffee) is at an all-time high in the spreadsheets 💎☕!`,
@@ -454,9 +437,9 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
     }
 
     const warmGreetings = {
-      COO: `Hey CEO! Orion Vance here 💼. Operational systems are smooth and the crew is ready. What's on your mind today?`,
-      CSO: `Hello CEO! Aria Vance here ♟️. Great to see you! I'm ready to brainstorm or dive into our next big initiative whenever you are.`,
-      CTO: `Hey CEO! Marcus Sterling here ⚡. All systems are green and builds are compiling cleanly! What are we building today?`,
+      COO: `Hey CEO! Orion Vance here 💼. Company prerequisites and operations are running smooth. What's on your mind today?`,
+      CSO: `Hello CEO! Aria Vance here (Lead BA) ♟️. Great to see you! I'm ready to analyze prerequisites and map our Agile Sprints whenever you are.`,
+      CTO: `Hey CEO! Marcus Sterling here ⚡. All systems are green and staging builds are compiling cleanly! What are we building today?`,
       CMO: `Hi boss! Elena Rostova here 📢. Brand energy is high today! Ready whenever you want to discuss positioning or outreach.`,
       CFO: `Good day, CEO! Dominic Croft here 💎. Financial burn is low and unit margins look healthy. How are you doing?`,
       DEV: `Hey CEO! Devin Cole here 💻. Workspace prepped and ready for sprint action!`
@@ -466,23 +449,23 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
 
   if (isStatusOrWorkQuestion(userMessage)) {
     const humanWorkStatus = {
-      COO: `Orion Vance: Right now, I'm keeping our executive machine synchronized! Making sure your directives translate into clean sub-tasks without any corporate friction.`,
-      CSO: `Aria Vance: I'm dissecting market trends, bifurcating approved initiatives into sub-tasks, and auditing deliverable quality so our execution stays top tier.`,
-      CTO: `Marcus Sterling: Refactoring our client state hooks, auditing API performance, and ensuring our GitHub sync stays lightning fast with zero server overhead!`,
-      CMO: `Elena Rostova: Drafting high-converting launch copy, analyzing viral GTM angles, and building out social proof assets for our next feature drop.`,
-      CFO: `Dominic Croft: Fine-tuning our unit economics! Modeling our payback windows so every dollar spent brings back $5+ in net value.`,
-      DEV: `Devin Cole: Writing modular React components, linking GitHub issue tickets, and making sure our UI looks sleek on every screen size.`
+      COO: `Orion Vance: Right now, I'm keeping our executive machine synchronized! Analyzing dev space prerequisites, tool needs, and contractor hiring gaps.`,
+      CSO: `Aria Vance (Lead BA): I'm acting as Lead BA — breaking large objectives into Sprint 1, 2, and 3 user stories, and managing to-and-fro QA testing loops.`,
+      CTO: `Marcus Sterling: Setting up our staging space, auditing API performance, and ensuring our GitHub sync stays lightning fast with zero server overhead!`,
+      CMO: `Elena Rostova: Drafting high-converting launch copy, analyzing viral GTM angles, and building out social proof assets for Sprint 2.`,
+      CFO: `Dominic Croft: Fine-tuning our unit economics! Modeling payback windows and contractor hiring budgets so every dollar brings back $5+.`,
+      DEV: `Devin Cole: Writing modular React components for Sprint 2, resolving QA rework feedback, and linking GitHub issue tickets.`
     };
     return humanWorkStatus[agent.role] || `Working hard on aligning our team goals under your direction, CEO!`;
   }
 
   const realisticHumanDialogue = {
-    COO: `I love the direction here. I've taken your directive, briefed Aria Vance (CSO) to bifurcate the work breakdown, and set up our closed-loop QA audit to ensure production excellence.`,
-    CSO: `Great strategic move! Briefed by Orion, I've split this initiative into 4 targeted sub-tasks across CTO, CFO, CMO, and DEV. I'll personally audit the deliverables before we ship to GitHub.`,
-    CTO: `From a engineering standpoint, I like it! We can architect this using modular JS client hooks and GitHub API persistence for zero-latency execution and 100% uptime.`,
+    COO: `Great strategic initiative! Orion here: I've evaluated company prerequisites (dev space, testing tools, and hiring needs), and passed the brief to Aria Vance (Lead BA) for Agile Sprint planning.`,
+    CSO: `Love this project! As Lead Business Analyst (BA), I've bifurcated this into Sprint 1 (Prerequisites & Architecture), Sprint 2 (Core Engineering), and Sprint 3 (QA Audit & Launch). We'll manage to-and-fro QA rework until everything is production ready!`,
+    CTO: `From an architectural standpoint, staging space and test sandboxes are prepped. Client state hooks + GitHub REST API give us 100% uptime with zero server overhead.`,
     CMO: `Marketing love for this idea! The value proposition is super compelling. We can build a strong organic campaign around founder control and AI governance.`,
     CFO: `The math smiles on this one! Capital requirement is lightweight, projected gross margins exceed 85%, and payback is estimated in under 60 days.`,
-    DEV: `Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sub-task tickets straight to GitHub.`
+    DEV: `Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sprint tickets straight to GitHub.`
   };
 
   return realisticHumanDialogue[agent.role] || `As ${agent.title}, I've reviewed your directive against my agent vector brain and recommend proceeding with aligned execution!`;
@@ -490,12 +473,6 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
 
 async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
   const prompt = `System Prompt: You are ${agent.name}, ${agent.title} powered by Antigravity AI (Google Deepmind level AI intelligence). Speak naturally as an authentic, highly intelligent human executive colleague with warmth, clarity, and pair-programming style empathy.
-
-IMPORTANT RULE:
-If the CEO says a simple greeting like "hi", "hello", or "how are you", reply warmly and directly in 1-2 friendly sentences. Do NOT include sub-task lists, QA rejection notes, or corporate boilerplate.
-
-Agent Brain Memories:
-${agentBrainContext || 'No prior agent specific memories.'}
 
 Company Shared Memory:
 ${globalMemoryContext}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass, AlertCircle, CheckCircle2, RefreshCw, GitPullRequest, Briefcase, Plus, Hash, Lock, Search, Paperclip, Mic, X } from 'lucide-react';
+import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass, AlertCircle, CheckCircle2, RefreshCw, GitPullRequest, Briefcase, Plus, Hash, Lock, Search, Paperclip, Mic, X, Layers, Cpu, UserPlus, FileText } from 'lucide-react';
 import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal } from '../services/agentEngine';
-import { syncSubTaskToGitHubProjects, auditSubTaskQuality } from '../services/cooWorkflowService';
+import { syncSubTaskToGitHubProjects } from '../services/cooWorkflowService';
+import { executeIterativeQAReworkLoop } from '../services/businessAnalystService';
 
 const STORAGE_CHAT_KEY = 'crewos_boardroom_chat_history';
 const STORAGE_CHANNELS_KEY = 'crewos_boardroom_channels';
@@ -46,7 +47,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const [huddleMessages, setHuddleMessages] = useState([]);
   const [activeFlowStep, setActiveFlowStep] = useState(null);
   const [expandedSubChatId, setExpandedSubChatId] = useState(null);
-  const [expandedSubTasksId, setExpandedSubTasksId] = useState(null);
+  const [expandedSprintsId, setExpandedSprintsId] = useState(null);
   const [ghSyncStatus, setGhSyncStatus] = useState({});
 
   // New Channel Creation Modal State
@@ -130,8 +131,8 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     setExpandedSubChatId(expandedSubChatId === msgId ? null : msgId);
   };
 
-  const toggleSubTasksExpand = (msgId) => {
-    setExpandedSubTasksId(expandedSubTasksId === msgId ? null : msgId);
+  const toggleSprintsExpand = (msgId) => {
+    setExpandedSprintsId(expandedSprintsId === msgId ? null : msgId);
   };
 
   const handleStartHuddle = async (e) => {
@@ -165,7 +166,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     const inputMsg = userChatInput;
     setUserChatInput('');
     setIsHuddling(true);
-    setActiveFlowStep('COO Orion Vance: Processing CEO Directive...');
+    setActiveFlowStep('COO Orion & Aria Vance (BA): Company Analysis...');
 
     const channelCrew = crewRoster.filter(a => activeChannel.members.includes(a.role));
 
@@ -186,16 +187,23 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     setTimeout(() => setActiveFlowStep(null), 3000);
   };
 
-  const handleReAuditSubTask = (msgId, taskId) => {
+  const handleIterativeQARework = (msgId, sprintIdx, taskId) => {
     setHuddleMessages(prev => prev.map(msg => {
-      if (msg.id !== msgId || !msg.subTasks) return msg;
+      if (msg.id !== msgId || !msg.agileSprints) return msg;
 
-      const updatedTasks = msg.subTasks.map(st => {
-        if (st.id !== taskId) return st;
-        return auditSubTaskQuality(st, 'GOOD PASS: Rework complete.');
+      const updatedSprints = msg.agileSprints.map((sprint, sIdx) => {
+        if (sIdx !== sprintIdx) return sprint;
+
+        const updatedSubTasks = sprint.subTasks.map(st => {
+          if (st.id !== taskId) return st;
+          // Execute iterative QA rework pass
+          return executeIterativeQAReworkLoop(st, 'GOOD PASS: Rework complete after iteration.');
+        });
+
+        return { ...sprint, subTasks: updatedSubTasks };
       });
 
-      return { ...msg, subTasks: updatedTasks };
+      return { ...msg, agileSprints: updatedSprints };
     }));
   };
 
@@ -211,10 +219,13 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
       if (res.success) {
         setGhSyncStatus(prev => ({ ...prev, [taskId]: 'success' }));
         setHuddleMessages(prevMsgs => prevMsgs.map(m => {
-          if (!m.subTasks) return m;
+          if (!m.agileSprints) return m;
           return {
             ...m,
-            subTasks: m.subTasks.map(st => st.id === taskId ? { ...st, githubIssueUrl: res.githubIssueUrl } : st)
+            agileSprints: m.agileSprints.map(s => ({
+              ...s,
+              subTasks: s.subTasks.map(st => st.id === taskId ? { ...st, githubIssueUrl: res.githubIssueUrl } : st)
+            }))
           };
         }));
       } else {
@@ -239,7 +250,6 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     return timeStr;
   };
 
-  // Filter messages for active channel
   const currentChannelMessages = huddleMessages.filter(
     m => !m.channelId || m.channelId === activeChannelId
   );
@@ -337,9 +347,9 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
           {/* Sidebar Footer */}
           <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400 space-y-1">
             <span className="font-bold text-slate-300 flex items-center gap-1">
-              <Briefcase className="w-3.5 h-3.5 text-sky-400" /> Intellectual COO Orion Vance
+              <Briefcase className="w-3.5 h-3.5 text-sky-400" /> Lead BA & Prerequisites Analysis
             </span>
-            <p>Backed by dedicated Vector Brain memories. Clarifies requirements & dispatches sub-tasks.</p>
+            <p>Orion & Aria analyze dev space, tools, and talent gaps before breaking projects into Agile Sprints!</p>
           </div>
         </div>
 
@@ -385,7 +395,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
               <span className="flex items-center gap-2">
                 <Activity className="w-3.5 h-3.5 text-emerald-400" /> {activeFlowStep}
               </span>
-              <span className="text-[10px] text-cyan-400">Processing Intent</span>
+              <span className="text-[10px] text-cyan-400">Processing Feasibility</span>
             </div>
           )}
 
@@ -417,8 +427,8 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                       <span className="text-[10px] text-slate-500 font-mono">{formatTimestamp(msg.timestamp)}</span>
                     </div>
 
-                    {/* Chat Bubble: CEO on RIGHT (purple), Crew on LEFT (dark glass) */}
-                    <div className={`max-w-[85%] lg:max-w-[75%] rounded-2xl p-4 space-y-2 shadow-lg transition-all ${
+                    {/* Chat Bubble */}
+                    <div className={`max-w-[85%] lg:max-w-[80%] rounded-2xl p-4 space-y-3 shadow-lg transition-all ${
                       isCEO
                         ? 'bg-gradient-to-r from-purple-700 to-indigo-700 text-white rounded-tr-none border border-purple-400/30'
                         : msg.isClarificationRequest
@@ -429,95 +439,140 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                         {msg.content}
                       </p>
 
-                      {/* Sub-Task Bifurcation Accordion */}
-                      {msg.subTasks && msg.subTasks.length > 0 && (
+                      {/* Company Feasibility & Prerequisites Card */}
+                      {msg.companyFeasibility && (
+                        <div className="p-3 bg-slate-950/80 rounded-xl border border-sky-500/40 text-xs space-y-2 text-left">
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span className="font-bold text-sky-300 flex items-center gap-1.5">
+                              <Cpu className="w-4 h-4 text-sky-400" /> Company Prerequisites & Feasibility Analysis
+                            </span>
+                            <span className="badge badge-cso text-[9px]">Aria Vance BA Audit</span>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {msg.companyFeasibility.prerequisites.map((p, pIdx) => (
+                              <div key={pIdx} className="flex items-start justify-between text-[11px] bg-slate-900/60 p-2 rounded border border-slate-800">
+                                <div>
+                                  <span className="font-semibold text-slate-200">{p.category}: </span>
+                                  <span className="text-slate-400">{p.detail}</span>
+                                </div>
+                                {p.alert ? (
+                                  <span className="badge badge-cmo text-[9px] flex items-center gap-1 shrink-0">
+                                    <UserPlus className="w-3 h-3" /> HIRE CONTRACTOR
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-cfo text-[9px] shrink-0">READY</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Aria Vance (Lead BA) Agile Sprints Accordion */}
+                      {msg.agileSprints && msg.agileSprints.length > 0 && (
                         <div className="mt-3 pt-2 border-t border-white/10 space-y-2">
                           <button
                             type="button"
-                            onClick={() => toggleSubTasksExpand(msg.id)}
+                            onClick={() => toggleSprintsExpand(msg.id)}
                             className="flex items-center justify-between w-full text-xs font-semibold text-purple-300 bg-slate-950/60 px-3 py-2 rounded-lg border border-slate-800 hover:border-purple-500/40 transition-all"
                           >
                             <span className="flex items-center gap-1.5">
-                              <GitPullRequest className="w-3.5 h-3.5 text-purple-400" />
-                              Sub-Task Work Breakdown & QA Audit ({msg.subTasks.length} Sub-Tasks)
+                              <Layers className="w-3.5 h-3.5 text-purple-400" />
+                              Aria Vance (Lead BA) Agile Sprint Breakdown ({msg.agileSprints.length} Sprints)
                             </span>
-                            {expandedSubTasksId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            {expandedSprintsId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
 
-                          {expandedSubTasksId === msg.id && (
-                            <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 space-y-3 text-xs text-left animate-fadeIn">
+                          {expandedSprintsId === msg.id && (
+                            <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 space-y-4 text-xs text-left animate-fadeIn">
                               <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                                <span>Sub-Task Work Breakdown & QA</span>
-                                <span className="text-purple-400 font-mono text-[10px]">GitHub Projects Integration</span>
+                                <span>Agile Sprint Breakdown & Iterative QA Rework</span>
+                                <span className="text-purple-400 font-mono text-[10px]">Lead BA Management</span>
                               </div>
 
-                              <div className="space-y-2">
-                                {msg.subTasks.map((st) => (
-                                  <div key={st.id} className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`badge ${st.badgeClass} text-[10px]`}>{st.assigneeRole}</span>
-                                        <span className="font-semibold text-white text-xs">{st.title}</span>
-                                      </div>
-
-                                      {st.status === 'COMPLETED' ? (
-                                        <span className="badge badge-cfo text-[10px] flex items-center gap-1">
-                                          <CheckCircle2 className="w-3 h-3" /> QA PASSED
-                                        </span>
-                                      ) : (
-                                        <span className="badge badge-cmo text-[10px] flex items-center gap-1 animate-pulse">
-                                          <AlertCircle className="w-3 h-3" /> REASSIGNED (QA FAILED)
-                                        </span>
-                                      )}
+                              <div className="space-y-3">
+                                {msg.agileSprints.map((sprint, sIdx) => (
+                                  <div key={sIdx} className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-2">
+                                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                                      <h5 className="font-bold text-purple-300 text-xs flex items-center gap-1.5">
+                                        <Layers className="w-3.5 h-3.5 text-purple-400" /> {sprint.sprintName}
+                                      </h5>
+                                      <span className="text-[10px] text-slate-400 font-mono">Duration: {sprint.duration}</span>
                                     </div>
 
-                                    <p className="text-[11px] text-slate-400">{st.description}</p>
+                                    <div className="space-y-2">
+                                      {sprint.subTasks.map((st) => (
+                                        <div key={st.id} className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 space-y-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <span className={`badge ${st.badgeClass} text-[10px]`}>{st.assigneeRole}</span>
+                                              <span className="font-semibold text-white text-xs">{st.title}</span>
+                                            </div>
 
-                                    {st.qaAudit && (
-                                      <div className={`p-2 rounded border text-[11px] ${
-                                        st.qaAudit.passed 
-                                          ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
-                                          : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
-                                      }`}>
-                                        <div className="font-bold flex items-center justify-between">
-                                          <span>Audited by {st.qaAudit.auditedBy}</span>
-                                          <span className="text-[9px] opacity-75 font-mono">{formatTimestamp(st.qaAudit.auditedAt)}</span>
+                                            {st.status === 'COMPLETED' ? (
+                                              <span className="badge badge-cfo text-[10px] flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" /> QA PASSED (Iter #{st.qaIterationCount || 1})
+                                              </span>
+                                            ) : (
+                                              <span className="badge badge-cmo text-[10px] flex items-center gap-1 animate-pulse">
+                                                <AlertCircle className="w-3 h-3" /> QA REJECTED (Iter #{st.qaIterationCount || 1})
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <p className="text-[11px] text-slate-300 italic font-mono">"{st.userStory}"</p>
+
+                                          {/* QA Audit Feedback */}
+                                          {st.qaAudit && (
+                                            <div className={`p-2 rounded border text-[11px] ${
+                                              st.qaAudit.passed 
+                                                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
+                                                : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
+                                            }`}>
+                                              <div className="font-bold flex items-center justify-between">
+                                                <span>Audited by {st.qaAudit.auditedBy}</span>
+                                                {st.qaAudit.auditedAt && <span className="text-[9px] opacity-75 font-mono">{formatTimestamp(st.qaAudit.auditedAt)}</span>}
+                                              </div>
+                                              <p className="mt-0.5">{st.qaAudit.feedback}</p>
+
+                                              {!st.qaAudit.passed && (
+                                                <button
+                                                  onClick={() => handleIterativeQARework(msg.id, sIdx, st.id)}
+                                                  className="mt-2 btn-secondary text-[10px] py-1 px-2.5 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/40 flex items-center gap-1"
+                                                >
+                                                  <RefreshCw className="w-3 h-3" /> Re-Submit for QA Audit (Iter #{ (st.qaIterationCount || 1) + 1 })
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {/* GitHub Push Action */}
+                                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px]">
+                                            <span className="text-slate-500 font-mono">Assignee: {st.assigneeName}</span>
+                                            
+                                            {st.githubIssueUrl ? (
+                                              <a
+                                                href={st.githubIssueUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-cyan-400 hover:underline font-mono flex items-center gap-1"
+                                              >
+                                                <GitPullRequest className="w-3 h-3" /> View GitHub Issue
+                                              </a>
+                                            ) : (
+                                              <button
+                                                onClick={() => handlePushSubTaskToGitHub(st.id, st)}
+                                                disabled={ghSyncStatus[st.id] === 'syncing'}
+                                                className="text-purple-300 hover:text-purple-200 font-mono flex items-center gap-1 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/30"
+                                              >
+                                                <GitPullRequest className="w-3 h-3" /> 
+                                                {ghSyncStatus[st.id] === 'syncing' ? 'Syncing...' : 'Log on GitHub Projects'}
+                                              </button>
+                                            )}
+                                          </div>
                                         </div>
-                                        <p className="mt-0.5">{st.qaAudit.feedback}</p>
-
-                                        {!st.qaAudit.passed && (
-                                          <button
-                                            onClick={() => handleReAuditSubTask(msg.id, st.id)}
-                                            className="mt-2 btn-secondary text-[10px] py-1 px-2.5 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/40 flex items-center gap-1"
-                                          >
-                                            <RefreshCw className="w-3 h-3" /> Re-Submit for QA Audit
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
-                                      <span className="text-[10px] text-slate-500 font-mono">Assigned to: {st.assigneeName}</span>
-                                      
-                                      {st.githubIssueUrl ? (
-                                        <a
-                                          href={st.githubIssueUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-[10px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
-                                        >
-                                          <GitPullRequest className="w-3 h-3" /> View GitHub Project Issue
-                                        </a>
-                                      ) : (
-                                        <button
-                                          onClick={() => handlePushSubTaskToGitHub(st.id, st)}
-                                          disabled={ghSyncStatus[st.id] === 'syncing'}
-                                          className="text-[10px] text-purple-300 hover:text-purple-200 font-mono flex items-center gap-1 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/30"
-                                        >
-                                          <GitPullRequest className="w-3 h-3" /> 
-                                          {ghSyncStatus[st.id] === 'syncing' ? 'Syncing...' : 'Log on GitHub Projects'}
-                                        </button>
-                                      )}
+                                      ))}
                                     </div>
                                   </div>
                                 ))}
@@ -595,7 +650,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                 type="text"
                 value={userChatInput}
                 onChange={(e) => setUserChatInput(e.target.value)}
-                placeholder={`Message #${activeChannel.name} or tag @COO Orion Vance...`}
+                placeholder={`Message #${activeChannel.name} or assign initiative (e.g. build architecture for website)...`}
                 className="flex-1 bg-transparent text-xs py-1.5 px-2 text-white placeholder-slate-500 focus:outline-none"
                 disabled={isHuddling}
               />
@@ -642,7 +697,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   type="text"
                   value={newChannelName}
                   onChange={(e) => setNewChannelName(e.target.value)}
-                  placeholder="e.g. marketing-sprint or finance-audit"
+                  placeholder="e.g. website-architecture or sprint-review"
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
                   required
                 />
@@ -654,7 +709,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   type="text"
                   value={newChannelDesc}
                   onChange={(e) => setNewChannelDesc(e.target.value)}
-                  placeholder="e.g. Dedicated channel for CMO & Lead Dev launch sprints"
+                  placeholder="e.g. Dedicated channel for BA Sprint Planning & Dev Execution"
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
                 />
               </div>
