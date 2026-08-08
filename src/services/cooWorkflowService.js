@@ -8,20 +8,21 @@ import { createGitHubIssue } from './githubService';
 
 /**
  * Evaluates whether a CEO directive requires clarifying questions before dispatching to Aria Vance & Team
+ * Orion Vance speaks with warm executive humor and human presence!
  */
 export const evaluateCEOIntentAndClarify = (directiveText) => {
   const t = directiveText.trim();
   const lower = t.toLowerCase();
 
-  // If prompt is vague or under 20 chars without specific details, ask clarifying questions
-  if (t.length < 22 && !lower.includes('approve') && !lower.includes('hello')) {
+  // If prompt is vague or under 22 chars without specific details, ask clarifying questions warmly
+  if (t.length < 22 && !lower.includes('approve') && !lower.includes('hello') && !lower.includes('hi') && !lower.includes('coffee') && !lower.includes('how')) {
     return {
       needsClarification: true,
       questions: [
-        `What is the primary target objective or timeline for "${t}"?`,
-        `Are there specific budget limits or tech stack requirements you'd like the crew to enforce?`
+        `What's our primary target outcome or deadline for "${t}"?`,
+        `Any specific budget boundaries or tech preferences you want us to lock in?`
       ],
-      cooBrief: `CEO suggested "${t}". Requesting quick clarification before dispatching to Aria Vance & Team.`
+      cooBrief: `CEO tossed over "${t}". Getting quick clarification before setting Aria and the team loose!`
     };
   }
 
@@ -46,8 +47,8 @@ export const bifurcateDirectiveIntoSubTasks = (initiativeTitle, summary) => {
       assigneeName: 'Marcus Sterling',
       badgeClass: 'badge-cto',
       description: `Architect modular client-side hooks, state persistence, and GitHub REST API integration for ${initiativeTitle}.`,
-      status: 'IN_PROGRESS', // IN_PROGRESS | QA_REVIEW | COMPLETED | REASSIGNED_NEEDS_REVISION
-      qaAudit: null, // { passed: boolean, feedback: string, auditedBy: 'Aria Vance (CSO)' }
+      status: 'IN_PROGRESS',
+      qaAudit: null,
       githubIssueUrl: null
     },
     {
@@ -91,10 +92,8 @@ export const bifurcateDirectiveIntoSubTasks = (initiativeTitle, summary) => {
 
 /**
  * Conducts a Quality Assurance (QA) Audit on a sub-task (Aria Vance CSO Function)
- * If quality is sub-par, re-assigns the sub-task back to the team member with specific instructions!
  */
 export const auditSubTaskQuality = (subTask, qualityFeedback = '') => {
-  // Simulate 80% pass rate, 20% re-assignment rate if feedback not forced
   const passed = qualityFeedback ? qualityFeedback.includes('GOOD') || qualityFeedback.includes('PASS') : Math.random() > 0.25;
 
   if (passed) {
@@ -110,7 +109,6 @@ export const auditSubTaskQuality = (subTask, qualityFeedback = '') => {
     };
   }
 
-  // Failed QA -> Re-assign back to team member with specific rework instructions!
   const rejectionReason = qualityFeedback || `Sub-task deliverable requires refinement. Insufficient detail provided for production requirements.`;
 
   return {

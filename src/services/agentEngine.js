@@ -4,8 +4,8 @@ import { evaluateCEOIntentAndClarify, bifurcateDirectiveIntoSubTasks, auditSubTa
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Features COO Executive Liaison, Aria Vance Sub-Task Bifurcation,
- * GitHub Projects Tracking, and Closed-Loop QA Re-Assignment.
+ * Features Human Personality, Sense of Humor, Executive Wit,
+ * and Conversational Warmth across Orion Vance (COO), Aria Vance (CSO), and Team.
  */
 
 export const getApiKeyConfig = () => {
@@ -24,7 +24,7 @@ export const saveApiKeyConfig = (config) => {
 const isGreetingOrCasual = (text) => {
   const t = text.toLowerCase().trim();
   const greetingPatterns = [
-    /^hello\b/, /^hi\b/, /^hey\b/, /how are you/, /good morning/, /good afternoon/, /whats up/, /what's up/
+    /^hello\b/, /^hi\b/, /^hey\b/, /how are you/, /good morning/, /good afternoon/, /whats up/, /what's up/, /coffee/, /joke/, /fun/, /rest/
   ];
   return greetingPatterns.some(p => p.test(t));
 };
@@ -59,7 +59,7 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
   if (isGreetingOrCasual(t) || t.length < 10) {
     return {
       intent: 'DIRECT_ANSWER',
-      reasoning: 'Direct conversational reply (No internal huddle needed)',
+      reasoning: 'Warm conversational reply (No huddle needed)',
       selectedRoles: []
     };
   }
@@ -123,17 +123,15 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
 
   if (!targetCrew.length) return [];
 
-  // 1. Aria Vance opens internal sub-chat with chosen specialists
   internalSubChatLog.push({
     id: `sub-${Date.now()}-cso-init`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
     agentName: 'Aria Vance',
     avatar: '♟️',
-    content: `[Internal Sub-Chat] Team, CEO asked: "${userMessage}". Consulting specialists (${selectedRoles.join(', ')}) to verify our Vector Brain memories before presenting our briefing.`
+    content: `[Internal Sub-Chat] Hey crew, CEO brought us: "${userMessage}". Let's double check our Vector Brains before giving our final recommendation.`
   });
 
-  // 2. Consult each selected specialist
   for (const agent of targetCrew) {
     if (onStep) onStep(`Consulting ${agent.role} ${agent.name}...`);
     await new Promise(r => setTimeout(r, 500));
@@ -141,15 +139,15 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     let specialistContent = '';
 
     if (agent.role === 'CTO') {
-      specialistContent = `[CTO Tech Audit] Querying CTO Vector Brain: Architecture is feasible. Modular client state with GitHub REST persistence ensures zero latency and full retention.`;
+      specialistContent = `[CTO Tech Audit] Marcus here: Tech stack looks crisp! Modular client state and GitHub API hooks give us zero latency and 100% uptime.`;
     } else if (agent.role === 'CFO') {
-      specialistContent = `[CFO Financial Audit] Querying CFO Vector Brain: Financial burn is under control. Estimated payback period remains under 60 days with >80% gross margins.`;
+      specialistContent = `[CFO Financial Audit] Dominic here: Financials are smiling! Operating burn is near zero and gross margins will sit comfortably above 85%.`;
     } else if (agent.role === 'CMO') {
-      specialistContent = `[CMO GTM Review] Querying CMO Vector Brain: Product positioning is sharp. High organic conversion expected around CEO governance storytelling.`;
+      specialistContent = `[CMO GTM Review] Elena here: Love the branding potential! Framed around CEO governance, this is going to generate strong organic word of mouth.`;
     } else if (agent.role === 'DEV') {
-      specialistContent = `[DEV Implementation Review] Querying DEV Vector Brain: Sprint tickets mapped. Ready to generate code assets and push sub-tasks to GitHub.`;
+      specialistContent = `[DEV Implementation Review] Devin here: Code sprint is ready to roll. Component contracts are structured and sub-tasks are queued for GitHub.`;
     } else {
-      specialistContent = `[${agent.role} Internal Review] Querying ${agent.role} Vector Brain: Domain analysis aligned with company goals.`;
+      specialistContent = `[${agent.role} Internal Review] Checked memory brain: All green on my end!`;
     }
 
     internalSubChatLog.push({
@@ -162,14 +160,13 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     });
   }
 
-  // 3. Aria Vance consensus summary
   internalSubChatLog.push({
     id: `sub-${Date.now()}-cso-summary`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
     agentName: 'Aria Vance',
     avatar: '♟️',
-    content: `[CSO Consensus] Consulted specialists (${selectedRoles.join(', ')}) aligned. Presenting unified executive briefing to COO & CEO.`
+    content: `[CSO Consensus] Perfect! Team (${selectedRoles.join(', ')}) is fully aligned. Presenting unified executive briefing to Orion and the CEO.`
   });
 
   return internalSubChatLog;
@@ -195,8 +192,7 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
 };
 
 /**
- * Interactive Chat Handler with COO Requirement Clarification,
- * Aria Vance Sub-Task Bifurcation, and QA Re-Assignment Loops.
+ * Interactive Chat Handler with Humanized COO Orion Vance & Aria Vance Dialogue
  */
 export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
   const timeNow = new Date().toISOString();
@@ -220,7 +216,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
   const clarificationCheck = evaluateCEOIntentAndClarify(userMessage);
 
   if (clarificationCheck.needsClarification) {
-    if (onFlowStepUpdate) onFlowStepUpdate('COO Orion Vance: Requesting CEO Requirement Clarification');
+    if (onFlowStepUpdate) onFlowStepUpdate('COO Orion Vance: Chatting with CEO...');
     await new Promise(r => setTimeout(r, 600));
 
     const cooClarificationMsg = {
@@ -232,7 +228,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
       avatar: cooAgent.avatar,
       color: cooAgent.color,
       badgeClass: cooAgent.badgeClass,
-      content: `Hello CEO! I received your directive: "${userMessage}". To ensure Aria Vance and the team execute this with 100% precision, could you clarify:\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nOnce you confirm, I will immediately brief Aria Vance to bifurcate sub-tasks and trigger execution!`,
+      content: `Hey CEO! Orion here ☕. Love where your head is at with "${userMessage}". To make sure Aria and the team hit the bullseye on the first try, could you help me lock down two quick details?\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nDrop your thoughts and I'll immediately brief Aria to bifurcate the sub-tasks and get GitHub moving!`,
       isClarificationRequest: true
     };
 
@@ -289,19 +285,16 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
 
   // 5. Aria Vance Bifurcates Directive into Sub-Tasks & Conducts QA Audit
   const rawSubTasks = bifurcateDirectiveIntoSubTasks(topic || userMessage, userMessage);
-  
-  // Perform QA Audits on sub-tasks (simulating closed-loop QA audit)
   const auditedSubTasks = rawSubTasks.map(st => auditSubTaskQuality(st));
 
   const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[2];
   const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
 
-  let finalContent = `[Briefing via COO Orion Vance]\n${mainResponse}`;
+  let finalContent = `[Briefed via COO Orion Vance]\n${mainResponse}`;
   
-  // Include Sub-Task Breakdown Summary
   const reAssignedTasks = auditedSubTasks.filter(st => st.status === 'REASSIGNED_NEEDS_REVISION');
   if (reAssignedTasks.length > 0) {
-    finalContent += `\n\n⚠️ **CSO QA Audit Alert**: Aria Vance audited sub-tasks. ${reAssignedTasks.length} sub-task(s) failed initial QA and were re-assigned with feedback:\n`;
+    finalContent += `\n\n⚠️ *Quality Notice*: Audited sub-tasks and noticed ${reAssignedTasks.length} needed extra polish. Sent back to the team with specific notes:\n`;
     reAssignedTasks.forEach(st => {
       finalContent += `• **${st.title}** (${st.assigneeRole}): ${st.qaAudit.feedback}\n`;
     });
@@ -407,47 +400,62 @@ export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria V
 async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
   await new Promise(r => setTimeout(r, 450));
 
+  const lower = userMessage.toLowerCase();
+
+  // Casual / Friendly Conversation
   if (isGreetingOrCasual(userMessage)) {
-    const greetings = {
-      COO: `Hello CEO! Orion Vance here. Operational synchronization is active. I am standing by to clarify your directives, brief Aria Vance, and track closed-loop QA sub-tasks. How can I assist?`,
-      CSO: `Hello CEO! Doing great. I'm reviewing our market expansion metrics and ready to bifurcate your directives into sub-tasks for GitHub Projects tracking.`,
-      CTO: `Hey CEO! All systems are green. Production builds are compiling cleanly and our GitHub persistence pipeline is operating with zero latency.`,
-      CMO: `Hi boss! Doing fantastic. Our product positioning is set and launch copy assets are ready whenever you want to trigger campaign outreach.`,
-      CFO: `Good day, CEO! Financial burn is well under control, gross margins remain above 80%, and payback windows look healthy.`,
-      DEV: `Hey CEO! Ready for action. Code modules are structured and sprint tickets are queued up for GitHub dispatch.`,
-      PLANNER: `Hello CEO! All milestones are scheduled and execution pipelines are aligned. How can I help?`
+    if (lower.includes('coffee')) {
+      const coffeeResponses = {
+        COO: `Orion here ☕: I'm currently on my 3rd double espresso today! Keeps the executive operations humming like a well-oiled machine. How's your cup holding up, CEO?`,
+        CSO: `Aria here ☕: Espresso levels are optimal! I find that good coffee combined with ambitious strategy is an unbeatable formula. What are we conquering today?`,
+        CTO: `Marcus here ☕: Converting coffee into clean code since 7 AM! If coffee levels drop below 40%, system latency increases by 15%. Keep the refills coming!`,
+        CMO: `Elena here ☕: I drink oat milk lattes while drafting viral campaign copy! Good coffee fuels great storytelling.`,
+        CFO: `Dominic here ☕: I track our coffee bean expenditure in the budget spreadsheets. Return on Coffee (ROC) is currently sitting at an all-time high!`,
+        DEV: `Devin here ☕: Fueling up on cold brew before pushing our next sprint build to GitHub. Let's build something awesome!`
+      };
+      return coffeeResponses[agent.role] || `Doing great and fueled up on coffee, CEO! How can we help?`;
+    }
+
+    const warmGreetings = {
+      COO: `Hey CEO! Orion Vance here 💼. Operations are running smooth, the crew is aligned, and I'm ready to turn your ideas into action. How's your day going?`,
+      CSO: `Hello CEO! Aria Vance here ♟️. Strategy mode is fully active! I was just pondering some exciting growth vectors. What's on your mind today?`,
+      CTO: `Hey CEO! Marcus Sterling here ⚡. All systems are green, builds are compiling in under 5 seconds, and bugs are running scared! What are we cooking up?`,
+      CMO: `Hi boss! Elena Rostova here 📢. The brand buzz is looking sharp today! Ready to craft some high-converting stories whenever you are.`,
+      CFO: `Good day, CEO! Dominic Croft here 💎. Financial burn is low, margins are high, and the spreadsheets are looking beautiful. How are you doing?`,
+      DEV: `Hey CEO! Devin Cole here 💻. Workspace is prepped, terminal is open, and code modules are ready for action. Let's build!`,
+      PLANNER: `Hello CEO! All milestones are mapped and execution schedules are in sync. Ready whenever you are!`
     };
-    return greetings[agent.role] || `Hello CEO! Doing great and ready for your direction.`;
+    return warmGreetings[agent.role] || `Hello CEO! Feeling great and ready for action.`;
   }
 
   if (isStatusOrWorkQuestion(userMessage)) {
-    const workStatus = {
-      COO: `Right now, I'm synchronizing executive briefs between you (CEO) and Aria Vance (CSO), ensuring all sub-task QA audits pass before reporting back.`,
-      CSO: `I'm bifurcating approved CEO directives into sub-tasks, pushing issue tickets to GitHub Projects, and auditing sub-task QA quality.`,
-      CTO: `I'm optimizing our client-side state architecture, verifying GitHub API persistence hooks, and auditing system security.`,
-      CMO: `I'm polishing our GTM launch copy, setting up customer acquisition loops, and preparing ProductHunt & X campaign materials.`,
-      CFO: `I'm modeling unit economics for our upcoming product launch, ensuring operating burn stays low and ROI exceeds 300%.`,
-      DEV: `I'm writing modular React component contracts, setting up local persistence state, and preparing automated GitHub issue templates.`,
-      PLANNER: `I'm organizing sprint milestones, scheduling crew deliverables, and tracking task completion rates.`
+    const humanWorkStatus = {
+      COO: `Orion here: Right now, I'm keeping our executive machine synchronized! Making sure your directives translate into clean sub-tasks without any corporate friction.`,
+      CSO: `Aria here: I'm dissecting market trends, bifurcating approved initiatives into sub-tasks, and auditing deliverable quality so our execution stays top tier.`,
+      CTO: `Marcus here: Refactoring our client state hooks, auditing API performance, and ensuring our GitHub sync stays lightning fast with zero server overhead!`,
+      CMO: `Elena here: Drafting high-converting launch copy, analyzing viral GTM angles, and building out social proof assets for our next feature drop.`,
+      CFO: `Dominic here: Fine-tuning our unit economics! Modeling our payback windows so every dollar spent brings back $5+ in net value.`,
+      DEV: `Devin here: Writing modular React components, linking GitHub issue tickets, and making sure our UI looks sleek on every screen size.`,
+      PLANNER: `Mapping out our sprint milestones and tracking team delivery velocity!`
     };
-    return workStatus[agent.role] || `I'm actively working on our executive directives under your guidance, CEO.`;
+    return humanWorkStatus[agent.role] || `Working hard on aligning our team goals under your direction, CEO!`;
   }
 
-  const realisticDialogue = {
-    COO: `I have received your directive and aligned requirements. I've briefed Aria Vance (CSO) to bifurcate the sub-tasks, log them on GitHub Projects, and run closed-loop QA audits.`,
-    CSO: `Directive received via COO Orion Vance. I have bifurcated this into 4 sub-tasks across CTO, CFO, CMO, and DEV. Closed-loop QA auditing is active; any sub-task failing quality check will be automatically re-assigned with feedback.`,
-    CTO: `Technically, this is straightforward to build. I recommend using modular JS architecture with GitHub REST API persistence to ensure zero server latency and full data retention.`,
-    CMO: `From a brand perspective, the value proposition is sharp. We can craft a high-converting campaign around CEO-controlled AI agent teams to drive rapid organic user signups.`,
-    CFO: `Financially, the metrics look solid. Required capital is minimal, projected gross margins exceed 85%, and payback is estimated within 45 to 60 days.`,
-    DEV: `Engineering sprint is ready. Once you authorize this directive, I'll generate the production code components and push implementation sub-tasks to GitHub.`,
-    PLANNER: `Project milestones mapped into Phase 1 (Architecture), Phase 2 (Implementation), and Phase 3 (GitHub Deployment).`
+  const realisticHumanDialogue = {
+    COO: `I love the direction here. I've taken your directive, briefed Aria Vance (CSO) to bifurcate the work breakdown, and set up our closed-loop QA audit to ensure production excellence.`,
+    CSO: `Great strategic move! Briefed by Orion, I've split this initiative into 4 targeted sub-tasks across CTO, CFO, CMO, and DEV. I'll personally audit the deliverables before we ship to GitHub.`,
+    CTO: `From a engineering standpoint, I like it! We can architect this using modular JS client hooks and GitHub API persistence for zero-latency execution and 100% uptime.`,
+    CMO: `Marketing love for this idea! The value proposition is super compelling. We can build a strong organic campaign around founder control and AI governance.`,
+    CFO: `The math smiles on this one! Capital requirement is lightweight, projected gross margins exceed 85%, and payback is estimated in under 60 days.`,
+    DEV: `Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sub-task tickets straight to GitHub.`,
+    PLANNER: `Milestones mapped: Phase 1 (Architecture), Phase 2 (QA Audit), Phase 3 (GitHub Deployment). Ready to roll!`
   };
 
-  return realisticDialogue[agent.role] || `As ${agent.title}, I've analyzed your directive against my agent vector brain and recommend proceeding with aligned execution.`;
+  return realisticHumanDialogue[agent.role] || `As ${agent.title}, I've reviewed your directive against my agent vector brain and recommend proceeding with aligned execution!`;
 }
 
 async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as a human executive colleague to the CEO. Do NOT echo or quote the user's question back. Answer directly and conversationally in 2-3 sentences.
+  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as an authentic, intelligent human executive colleague with warmth, humor, and personality. Do NOT speak like a rigid corporate template or robotic task bot. Use light wit, natural dialogue, and conversational warmth.
 
 Your Agent Brain Memories:
 ${agentBrainContext || 'No prior agent specific memories.'}
@@ -459,7 +467,7 @@ CEO User Message: "${userMessage}"
 Recent Conversation:
 ${messageHistory.map(m => `${m.agentRole}: ${m.content}`).join('\n')}
 
-Respond naturally as ${agent.name} (${agent.title}).`;
+Respond naturally and conversationally as ${agent.name} (${agent.title}).`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
