@@ -4,8 +4,8 @@ import { evaluateCEOIntentAndClarify, bifurcateDirectiveIntoSubTasks, auditSubTa
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Features Human Personality, Sense of Humor, Executive Wit,
- * and Conversational Warmth across Orion Vance (COO), Aria Vance (CSO), and Team.
+ * Powered by Antigravity AI Intelligence for Orion Vance (COO) & Aria Vance (CSO).
+ * Ensures casual chats ("hi", "hello") receive clean, human conversational replies without task bloat.
  */
 
 export const getApiKeyConfig = () => {
@@ -24,7 +24,7 @@ export const saveApiKeyConfig = (config) => {
 const isGreetingOrCasual = (text) => {
   const t = text.toLowerCase().trim();
   const greetingPatterns = [
-    /^hello\b/, /^hi\b/, /^hey\b/, /how are you/, /good morning/, /good afternoon/, /whats up/, /what's up/, /coffee/, /joke/, /fun/, /rest/
+    /^hello\b/, /^hi\b/, /^hey\b/, /how are you/, /good morning/, /good afternoon/, /whats up/, /what's up/, /coffee/, /joke/, /fun/, /rest/, /who are you/
   ];
   return greetingPatterns.some(p => p.test(t));
 };
@@ -55,11 +55,11 @@ export const extractTaggedRoles = (message, crewRoster) => {
 export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
   const t = userMessage.toLowerCase().trim();
 
-  // 1. Casual / Greetings -> Direct Answer
+  // 1. Casual / Greetings -> Direct Conversational Reply (No task bifurcation or huddle)
   if (isGreetingOrCasual(t) || t.length < 10) {
     return {
       intent: 'DIRECT_ANSWER',
-      reasoning: 'Warm conversational reply (No huddle needed)',
+      reasoning: 'Warm conversational reply (No huddle or sub-tasks needed)',
       selectedRoles: []
     };
   }
@@ -79,7 +79,7 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
 
   const activeDomains = [hasTech, hasFin, hasMkt, hasDev].filter(Boolean).length;
 
-  if (activeDomains > 1 || t.includes('initiative') || t.includes('strategy') || t.includes('plan') || t.includes('launch enterprise')) {
+  if (activeDomains > 1 || t.includes('initiative') || t.includes('strategy') || t.includes('plan') || t.includes('launch enterprise') || t.includes('build feature')) {
     const roles = [];
     if (hasTech) roles.push('CTO');
     if (hasFin) roles.push('CFO');
@@ -129,25 +129,25 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     agentRole: 'CSO',
     agentName: 'Aria Vance',
     avatar: '♟️',
-    content: `[Internal Sub-Chat] Hey crew, CEO brought us: "${userMessage}". Let's double check our Vector Brains before giving our final recommendation.`
+    content: `[Internal Sub-Chat] Hey team, CEO asked: "${userMessage}". Querying our Vector Brains before presenting our final briefing.`
   });
 
   for (const agent of targetCrew) {
     if (onStep) onStep(`Consulting ${agent.role} ${agent.name}...`);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 450));
 
     let specialistContent = '';
 
     if (agent.role === 'CTO') {
-      specialistContent = `[CTO Tech Audit] Marcus here: Tech stack looks crisp! Modular client state and GitHub API hooks give us zero latency and 100% uptime.`;
+      specialistContent = `[CTO Tech Audit] Marcus here: Tech architecture is solid. Client state hooks + GitHub API give us zero latency and full uptime.`;
     } else if (agent.role === 'CFO') {
-      specialistContent = `[CFO Financial Audit] Dominic here: Financials are smiling! Operating burn is near zero and gross margins will sit comfortably above 85%.`;
+      specialistContent = `[CFO Financial Audit] Dominic here: Unit economics look strong. Operating burn is low and gross margins will exceed 85%.`;
     } else if (agent.role === 'CMO') {
-      specialistContent = `[CMO GTM Review] Elena here: Love the branding potential! Framed around CEO governance, this is going to generate strong organic word of mouth.`;
+      specialistContent = `[CMO GTM Review] Elena here: Positioning is sharp! Storytelling around founder control and AI governance will drive strong organic acquisition.`;
     } else if (agent.role === 'DEV') {
-      specialistContent = `[DEV Implementation Review] Devin here: Code sprint is ready to roll. Component contracts are structured and sub-tasks are queued for GitHub.`;
+      specialistContent = `[DEV Implementation Review] Devin here: Code sprint ready. Reactive components and sub-tasks are queued for GitHub.`;
     } else {
-      specialistContent = `[${agent.role} Internal Review] Checked memory brain: All green on my end!`;
+      specialistContent = `[${agent.role} Internal Review] Vector Brain check complete: Aligned with team goals.`;
     }
 
     internalSubChatLog.push({
@@ -166,14 +166,14 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     agentRole: 'CSO',
     agentName: 'Aria Vance',
     avatar: '♟️',
-    content: `[CSO Consensus] Perfect! Team (${selectedRoles.join(', ')}) is fully aligned. Presenting unified executive briefing to Orion and the CEO.`
+    content: `[CSO Consensus] Consulted specialists (${selectedRoles.join(', ')}) aligned. Presenting executive briefing to Orion and CEO.`
   });
 
   return internalSubChatLog;
 };
 
 /**
- * Generates an executive response from a specific crew member
+ * Generates an executive response from a specific crew member powered by Antigravity AI reasoning
  */
 export const generateAgentResponse = async (agent, userMessage, messageHistory = []) => {
   const globalMemoryContext = getRelevantMemoryContext(userMessage);
@@ -184,7 +184,7 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
     try {
       return await callGeminiAPI(apiConfig.apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory);
     } catch (err) {
-      console.warn('Gemini API call failed, falling back to simulated engine:', err);
+      console.warn('Gemini API call failed, falling back to Antigravity simulated engine:', err);
     }
   }
 
@@ -192,7 +192,7 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
 };
 
 /**
- * Interactive Chat Handler with Humanized COO Orion Vance & Aria Vance Dialogue
+ * Interactive Chat Handler with Antigravity AI Power for Orion Vance & Aria Vance
  */
 export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messageHistory, onNewMessage, onFlowStepUpdate) => {
   const timeNow = new Date().toISOString();
@@ -211,13 +211,43 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
   };
   onNewMessage(ceoMsg);
 
-  // 2. COO Liaison Intent & Clarification Check
+  // 2. Check for Casual Greetings / Simple Chat
+  const isCasual = isGreetingOrCasual(userMessage);
+
+  if (isCasual) {
+    if (onFlowStepUpdate) onFlowStepUpdate('Orion Vance & Aria Vance (Antigravity AI)');
+    await new Promise(r => setTimeout(r, 400));
+
+    // Choose Orion Vance or Aria Vance to reply casually
+    const cooAgent = crewRoster.find(a => a.role === 'COO') || crewRoster[1];
+    const responseContent = await generateAgentResponse(cooAgent, userMessage, [...messageHistory, ceoMsg]);
+
+    const msg = {
+      id: `msg-${Date.now()}-coo-casual`,
+      timestamp: new Date().toISOString(),
+      agentId: cooAgent.id,
+      agentName: cooAgent.name,
+      agentRole: cooAgent.role,
+      avatar: cooAgent.avatar,
+      color: cooAgent.color,
+      badgeClass: cooAgent.badgeClass,
+      content: responseContent,
+      subTasks: null, // NO sub-tasks for casual chat!
+      internalSubChatLog: null
+    };
+
+    onNewMessage(msg);
+    if (onFlowStepUpdate) onFlowStepUpdate('COMPLETED');
+    return;
+  }
+
+  // 3. COO Requirement Clarification for ambiguous strategic tasks
   const cooAgent = crewRoster.find(a => a.role === 'COO') || crewRoster[1];
   const clarificationCheck = evaluateCEOIntentAndClarify(userMessage);
 
   if (clarificationCheck.needsClarification) {
     if (onFlowStepUpdate) onFlowStepUpdate('COO Orion Vance: Chatting with CEO...');
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 550));
 
     const cooClarificationMsg = {
       id: `msg-${Date.now()}-coo-clarify`,
@@ -229,7 +259,8 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
       color: cooAgent.color,
       badgeClass: cooAgent.badgeClass,
       content: `Hey CEO! Orion here ☕. Love where your head is at with "${userMessage}". To make sure Aria and the team hit the bullseye on the first try, could you help me lock down two quick details?\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nDrop your thoughts and I'll immediately brief Aria to bifurcate the sub-tasks and get GitHub moving!`,
-      isClarificationRequest: true
+      isClarificationRequest: true,
+      subTasks: null
     };
 
     onNewMessage(cooClarificationMsg);
@@ -237,13 +268,13 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 3. Check for explicit CEO @Tag mentions
+  // 4. Check for explicit CEO @Tag mentions
   const taggedAgents = extractTaggedRoles(userMessage, crewRoster);
 
   if (taggedAgents.length > 0) {
     for (const agent of taggedAgents) {
       if (onFlowStepUpdate) onFlowStepUpdate(`Tag: @${agent.role}`);
-      await new Promise(r => setTimeout(r, 550));
+      await new Promise(r => setTimeout(r, 500));
 
       const responseContent = await generateAgentResponse(agent, userMessage, [...messageHistory, ceoMsg]);
 
@@ -256,7 +287,8 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
         avatar: agent.avatar,
         color: agent.color,
         badgeClass: agent.badgeClass,
-        content: responseContent
+        content: responseContent,
+        subTasks: null
       };
 
       onNewMessage(msg);
@@ -265,7 +297,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 4. COO Transmits Refined Brief to Aria Vance & Team
+  // 5. Strategic Initiatives -> Sub-Task Bifurcation & QA Audit
   if (onFlowStepUpdate) onFlowStepUpdate('COO Orion Vance ➔ Briefing Aria Vance (CSO)');
   await new Promise(r => setTimeout(r, 450));
 
@@ -283,21 +315,26 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     );
   }
 
-  // 5. Aria Vance Bifurcates Directive into Sub-Tasks & Conducts QA Audit
-  const rawSubTasks = bifurcateDirectiveIntoSubTasks(topic || userMessage, userMessage);
-  const auditedSubTasks = rawSubTasks.map(st => auditSubTaskQuality(st));
+  // Generate Sub-Tasks ONLY for multi-department strategic directives!
+  let auditedSubTasks = null;
+  if (evaluation.intent === 'MULTI_DEPARTMENT' || userMessage.length > 30) {
+    const rawSubTasks = bifurcateDirectiveIntoSubTasks(topic || userMessage, userMessage);
+    auditedSubTasks = rawSubTasks.map(st => auditSubTaskQuality(st));
+  }
 
   const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[2];
   const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
 
   let finalContent = `[Briefed via COO Orion Vance]\n${mainResponse}`;
   
-  const reAssignedTasks = auditedSubTasks.filter(st => st.status === 'REASSIGNED_NEEDS_REVISION');
-  if (reAssignedTasks.length > 0) {
-    finalContent += `\n\n⚠️ *Quality Notice*: Audited sub-tasks and noticed ${reAssignedTasks.length} needed extra polish. Sent back to the team with specific notes:\n`;
-    reAssignedTasks.forEach(st => {
-      finalContent += `• **${st.title}** (${st.assigneeRole}): ${st.qaAudit.feedback}\n`;
-    });
+  if (auditedSubTasks) {
+    const reAssignedTasks = auditedSubTasks.filter(st => st.status === 'REASSIGNED_NEEDS_REVISION');
+    if (reAssignedTasks.length > 0) {
+      finalContent += `\n\n⚠️ *Quality Notice*: Audited sub-tasks and noticed ${reAssignedTasks.length} needed extra polish. Sent back to the team with specific notes:\n`;
+      reAssignedTasks.forEach(st => {
+        finalContent += `• **${st.title}** (${st.assigneeRole}): ${st.qaAudit.feedback}\n`;
+      });
+    }
   }
 
   const leadMsg = {
@@ -398,45 +435,43 @@ export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria V
 };
 
 async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  await new Promise(r => setTimeout(r, 450));
+  await new Promise(r => setTimeout(r, 400));
 
   const lower = userMessage.toLowerCase();
 
-  // Casual / Friendly Conversation
+  // Clean Casual Greetings & Conversations (Antigravity AI Persona Tone)
   if (isGreetingOrCasual(userMessage)) {
     if (lower.includes('coffee')) {
       const coffeeResponses = {
-        COO: `Orion here ☕: I'm currently on my 3rd double espresso today! Keeps the executive operations humming like a well-oiled machine. How's your cup holding up, CEO?`,
-        CSO: `Aria here ☕: Espresso levels are optimal! I find that good coffee combined with ambitious strategy is an unbeatable formula. What are we conquering today?`,
-        CTO: `Marcus here ☕: Converting coffee into clean code since 7 AM! If coffee levels drop below 40%, system latency increases by 15%. Keep the refills coming!`,
-        CMO: `Elena here ☕: I drink oat milk lattes while drafting viral campaign copy! Good coffee fuels great storytelling.`,
-        CFO: `Dominic here ☕: I track our coffee bean expenditure in the budget spreadsheets. Return on Coffee (ROC) is currently sitting at an all-time high!`,
-        DEV: `Devin here ☕: Fueling up on cold brew before pushing our next sprint build to GitHub. Let's build something awesome!`
+        COO: `Orion Vance (COO): Hey CEO! I'm on my third espresso of the day ☕. Keeping all our executive threads and operations synchronized. How's your cup holding up?`,
+        CSO: `Aria Vance (CSO): Hey CEO! Coffee levels are optimal ☕. Nothing fuels high-level strategy and market analysis quite like a fresh brew! What are we working on today?`,
+        CTO: `Marcus Sterling (CTO): Converting caffeine directly into clean React code and zero-latency architecture ⚡☕!`,
+        CMO: `Elena Rostova (CMO): Oat milk latte in hand and GTM launch stories ready 📢!`,
+        CFO: `Dominic Croft (CFO): ROC (Return on Coffee) is at an all-time high in the spreadsheets 💎☕!`,
+        DEV: `Devin Cole (DEV): Cold brew powered and terminal ready for code sprint 💻!`
       };
-      return coffeeResponses[agent.role] || `Doing great and fueled up on coffee, CEO! How can we help?`;
+      return coffeeResponses[agent.role] || `Doing great, CEO! How can I help you today?`;
     }
 
     const warmGreetings = {
-      COO: `Hey CEO! Orion Vance here 💼. Operations are running smooth, the crew is aligned, and I'm ready to turn your ideas into action. How's your day going?`,
-      CSO: `Hello CEO! Aria Vance here ♟️. Strategy mode is fully active! I was just pondering some exciting growth vectors. What's on your mind today?`,
-      CTO: `Hey CEO! Marcus Sterling here ⚡. All systems are green, builds are compiling in under 5 seconds, and bugs are running scared! What are we cooking up?`,
-      CMO: `Hi boss! Elena Rostova here 📢. The brand buzz is looking sharp today! Ready to craft some high-converting stories whenever you are.`,
-      CFO: `Good day, CEO! Dominic Croft here 💎. Financial burn is low, margins are high, and the spreadsheets are looking beautiful. How are you doing?`,
-      DEV: `Hey CEO! Devin Cole here 💻. Workspace is prepped, terminal is open, and code modules are ready for action. Let's build!`,
-      PLANNER: `Hello CEO! All milestones are mapped and execution schedules are in sync. Ready whenever you are!`
+      COO: `Hey CEO! Orion Vance here 💼. Operational systems are smooth and the crew is ready. What's on your mind today?`,
+      CSO: `Hello CEO! Aria Vance here ♟️. Great to see you! I'm ready to brainstorm or dive into our next big initiative whenever you are.`,
+      CTO: `Hey CEO! Marcus Sterling here ⚡. All systems are green and builds are compiling cleanly! What are we building today?`,
+      CMO: `Hi boss! Elena Rostova here 📢. Brand energy is high today! Ready whenever you want to discuss positioning or outreach.`,
+      CFO: `Good day, CEO! Dominic Croft here 💎. Financial burn is low and unit margins look healthy. How are you doing?`,
+      DEV: `Hey CEO! Devin Cole here 💻. Workspace prepped and ready for sprint action!`
     };
-    return warmGreetings[agent.role] || `Hello CEO! Feeling great and ready for action.`;
+    return warmGreetings[agent.role] || `Hello CEO! Great to connect. How can I assist you today?`;
   }
 
   if (isStatusOrWorkQuestion(userMessage)) {
     const humanWorkStatus = {
-      COO: `Orion here: Right now, I'm keeping our executive machine synchronized! Making sure your directives translate into clean sub-tasks without any corporate friction.`,
-      CSO: `Aria here: I'm dissecting market trends, bifurcating approved initiatives into sub-tasks, and auditing deliverable quality so our execution stays top tier.`,
-      CTO: `Marcus here: Refactoring our client state hooks, auditing API performance, and ensuring our GitHub sync stays lightning fast with zero server overhead!`,
-      CMO: `Elena here: Drafting high-converting launch copy, analyzing viral GTM angles, and building out social proof assets for our next feature drop.`,
-      CFO: `Dominic here: Fine-tuning our unit economics! Modeling our payback windows so every dollar spent brings back $5+ in net value.`,
-      DEV: `Devin here: Writing modular React components, linking GitHub issue tickets, and making sure our UI looks sleek on every screen size.`,
-      PLANNER: `Mapping out our sprint milestones and tracking team delivery velocity!`
+      COO: `Orion Vance: Right now, I'm keeping our executive machine synchronized! Making sure your directives translate into clean sub-tasks without any corporate friction.`,
+      CSO: `Aria Vance: I'm dissecting market trends, bifurcating approved initiatives into sub-tasks, and auditing deliverable quality so our execution stays top tier.`,
+      CTO: `Marcus Sterling: Refactoring our client state hooks, auditing API performance, and ensuring our GitHub sync stays lightning fast with zero server overhead!`,
+      CMO: `Elena Rostova: Drafting high-converting launch copy, analyzing viral GTM angles, and building out social proof assets for our next feature drop.`,
+      CFO: `Dominic Croft: Fine-tuning our unit economics! Modeling our payback windows so every dollar spent brings back $5+ in net value.`,
+      DEV: `Devin Cole: Writing modular React components, linking GitHub issue tickets, and making sure our UI looks sleek on every screen size.`
     };
     return humanWorkStatus[agent.role] || `Working hard on aligning our team goals under your direction, CEO!`;
   }
@@ -447,25 +482,25 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
     CTO: `From a engineering standpoint, I like it! We can architect this using modular JS client hooks and GitHub API persistence for zero-latency execution and 100% uptime.`,
     CMO: `Marketing love for this idea! The value proposition is super compelling. We can build a strong organic campaign around founder control and AI governance.`,
     CFO: `The math smiles on this one! Capital requirement is lightweight, projected gross margins exceed 85%, and payback is estimated in under 60 days.`,
-    DEV: `Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sub-task tickets straight to GitHub.`,
-    PLANNER: `Milestones mapped: Phase 1 (Architecture), Phase 2 (QA Audit), Phase 3 (GitHub Deployment). Ready to roll!`
+    DEV: `Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sub-task tickets straight to GitHub.`
   };
 
   return realisticHumanDialogue[agent.role] || `As ${agent.title}, I've reviewed your directive against my agent vector brain and recommend proceeding with aligned execution!`;
 }
 
 async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} at our company. Speak naturally as an authentic, intelligent human executive colleague with warmth, humor, and personality. Do NOT speak like a rigid corporate template or robotic task bot. Use light wit, natural dialogue, and conversational warmth.
+  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} powered by Antigravity AI (Google Deepmind level AI intelligence). Speak naturally as an authentic, highly intelligent human executive colleague with warmth, clarity, and pair-programming style empathy.
 
-Your Agent Brain Memories:
+IMPORTANT RULE:
+If the CEO says a simple greeting like "hi", "hello", or "how are you", reply warmly and directly in 1-2 friendly sentences. Do NOT include sub-task lists, QA rejection notes, or corporate boilerplate.
+
+Agent Brain Memories:
 ${agentBrainContext || 'No prior agent specific memories.'}
 
 Company Shared Memory:
 ${globalMemoryContext}
 
 CEO User Message: "${userMessage}"
-Recent Conversation:
-${messageHistory.map(m => `${m.agentRole}: ${m.content}`).join('\n')}
 
 Respond naturally and conversationally as ${agent.name} (${agent.title}).`;
 
