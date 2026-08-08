@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass } from 'lucide-react';
-import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal } from '../services/agentEngine';
+import { Play, MessageSquare, Send, Sparkles, ShieldCheck, ArrowRight, Check, Users, UserCheck, Trash2, Clock, Activity, AtSign, ChevronDown, ChevronUp, BrainCircuit, Compass, AlertCircle, CheckCircle2, RefreshCw, GitPullRequest, Briefcase } from 'lucide-react';
+import { simulateBoardroomHuddle, handleCEOChatMessage, synthesizeProposal, getApiKeyConfig } from '../services/agentEngine';
+import { syncSubTaskToGitHubProjects, auditSubTaskQuality } from '../services/cooWorkflowService';
 
 const STORAGE_CHAT_KEY = 'crewos_boardroom_chat_history';
 
@@ -11,6 +12,8 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const [huddleMessages, setHuddleMessages] = useState([]);
   const [activeFlowStep, setActiveFlowStep] = useState(null);
   const [expandedSubChatId, setExpandedSubChatId] = useState(null);
+  const [expandedSubTasksId, setExpandedSubTasksId] = useState(null);
+  const [ghSyncStatus, setGhSyncStatus] = useState({});
 
   // Selected crew members for manual conversation override
   const [selectedAgentRoles, setSelectedAgentRoles] = useState(
@@ -43,20 +46,6 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     }
   };
 
-  const toggleAgentSelection = (role) => {
-    if (selectedAgentRoles.includes(role)) {
-      if (selectedAgentRoles.length > 1) {
-        setSelectedAgentRoles(selectedAgentRoles.filter(r => r !== role));
-      }
-    } else {
-      setSelectedAgentRoles([...selectedAgentRoles, role]);
-    }
-  };
-
-  const handleSelectAllAgents = () => {
-    setSelectedAgentRoles(crewRoster.filter(a => a.role !== 'CEO').map(a => a.role));
-  };
-
   const handleTagAgentInput = (role) => {
     const tag = `@${role} `;
     if (!userChatInput.includes(tag)) {
@@ -68,12 +57,16 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     setExpandedSubChatId(expandedSubChatId === msgId ? null : msgId);
   };
 
+  const toggleSubTasksExpand = (msgId) => {
+    setExpandedSubTasksId(expandedSubTasksId === msgId ? null : msgId);
+  };
+
   const handleStartHuddle = async (e) => {
     e.preventDefault();
     if (!topic.trim() || isHuddling) return;
 
     setIsHuddling(true);
-    setActiveFlowStep('Convening Boardroom Huddle...');
+    setActiveFlowStep('Convening Full Boardroom Huddle...');
 
     const activeCrew = crewRoster.filter(a => selectedAgentRoles.includes(a.role));
 
@@ -99,7 +92,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
     const inputMsg = userChatInput;
     setUserChatInput('');
     setIsHuddling(true);
-    setActiveFlowStep('Aria Vance Evaluating Query...');
+    setActiveFlowStep('COO Orion Vance: Processing CEO Directive...');
 
     await handleCEOChatMessage(
       inputMsg,
@@ -116,6 +109,47 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
 
     setIsHuddling(false);
     setTimeout(() => setActiveFlowStep(null), 3000);
+  };
+
+  const handleReAuditSubTask = (msgId, taskId) => {
+    setHuddleMessages(prev => prev.map(msg => {
+      if (msg.id !== msgId || !msg.subTasks) return msg;
+
+      const updatedTasks = msg.subTasks.map(st => {
+        if (st.id !== taskId) return st;
+        // Re-audit with forced GOOD QA pass
+        return auditSubTaskQuality(st, 'GOOD PASS: Rework complete.');
+      });
+
+      return { ...msg, subTasks: updatedTasks };
+    }));
+  };
+
+  const handlePushSubTaskToGitHub = async (taskId, subTask) => {
+    setGhSyncStatus(prev => ({ ...prev, [taskId]: 'syncing' }));
+
+    try {
+      const savedGh = localStorage.getItem('crewos_github_config');
+      const gitHubConfig = savedGh ? JSON.parse(savedGh) : { token: '', repo: 'PAP97/crewos-ai' };
+
+      const res = await syncSubTaskToGitHubProjects(gitHubConfig, subTask);
+
+      if (res.success) {
+        setGhSyncStatus(prev => ({ ...prev, [taskId]: 'success' }));
+        setHuddleMessages(prevMsgs => prevMsgs.map(m => {
+          if (!m.subTasks) return m;
+          return {
+            ...m,
+            subTasks: m.subTasks.map(st => st.id === taskId ? { ...st, githubIssueUrl: res.githubIssueUrl } : st)
+          };
+        }));
+      } else {
+        alert(`GitHub Sync Notice: ${res.message || 'Please configure GitHub Token in Settings'}`);
+        setGhSyncStatus(prev => ({ ...prev, [taskId]: 'idle' }));
+      }
+    } catch (e) {
+      setGhSyncStatus(prev => ({ ...prev, [taskId]: 'idle' }));
+    }
   };
 
   const handleSynthesizeProposal = () => {
@@ -144,11 +178,11 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5" /> Intelligent Dynamic Crew Routing
+              <Sparkles className="w-3.5 h-3.5" /> COO Liaison & Closed-Loop QA Re-Assignment
             </div>
-            <h2 className="text-2xl font-bold text-white">Boardroom Briefings & Smart Crew Selection</h2>
+            <h2 className="text-2xl font-bold text-white">Executive Operations & Sub-Task Audit</h2>
             <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-              Lead Representative <strong>Aria Vance (CSO)</strong> evaluates your queries dynamically — delivering direct answers for simple chats, or consulting ONLY the relevant specialists for technical/financial topics!
+              <strong>COO Orion Vance</strong> clarifies requirements with you, briefs <strong>Aria Vance (CSO)</strong> to bifurcate sub-tasks for GitHub Projects, and executes closed-loop QA audits with automatic sub-task re-assignment!
             </p>
           </div>
 
@@ -211,7 +245,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
       <div className="glass-panel p-4 border-slate-800 bg-slate-950/60 space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
           <span className="flex items-center gap-1.5 text-purple-400">
-            <Activity className="w-4 h-4" /> CEO Request Flow & Smart Routing Tracker
+            <Activity className="w-4 h-4" /> Closed-Loop Executive Operational Stepper
           </span>
           {activeFlowStep && (
             <span className="text-emerald-400 font-mono flex items-center gap-1 text-[11px] animate-pulse">
@@ -228,14 +262,21 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
 
           <span className="text-slate-600 font-bold">➔</span>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/80 bg-cyan-950/40 text-cyan-300 text-xs font-semibold whitespace-nowrap">
-            <Compass className="w-3.5 h-3.5" />
-            <span>Aria Vance (CSO) Smart Routing</span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/80 bg-sky-950/40 text-sky-300 text-xs font-semibold whitespace-nowrap">
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>COO Orion Vance (Clarification)</span>
           </div>
 
           <span className="text-slate-600 font-bold">➔</span>
 
-          {crewRoster.filter(a => a.role !== 'CEO' && a.role !== 'CSO').map((agent, idx) => {
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/80 bg-cyan-950/40 text-cyan-300 text-xs font-semibold whitespace-nowrap">
+            <GitPullRequest className="w-3.5 h-3.5" />
+            <span>Aria Vance (CSO Sub-Tasks & QA Audit)</span>
+          </div>
+
+          <span className="text-slate-600 font-bold">➔</span>
+
+          {crewRoster.filter(a => a.role !== 'CEO' && a.role !== 'COO' && a.role !== 'CSO').map((agent, idx) => {
             const isActive = activeFlowStep && (activeFlowStep.includes(agent.role) || activeFlowStep.includes(agent.name));
 
             return (
@@ -248,7 +289,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   <span>{agent.avatar}</span>
                   <span>{agent.role}</span>
                 </div>
-                {idx < crewRoster.length - 3 && <span className="text-slate-600 font-bold">➔</span>}
+                {idx < crewRoster.length - 4 && <span className="text-slate-600 font-bold">➔</span>}
               </React.Fragment>
             );
           })}
@@ -262,7 +303,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
         <div className="lg:col-span-1 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Executive Crew ({crewRoster.length - 1})
+              Executive Roster ({crewRoster.length - 1})
             </h3>
           </div>
 
@@ -291,9 +332,9 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
 
           <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
             <span className="font-bold text-slate-300 flex items-center gap-1">
-              <Compass className="w-3.5 h-3.5 text-cyan-400" /> Smart Lead Routing
+              <Briefcase className="w-3.5 h-3.5 text-sky-400" /> Executive COO Liaison
             </span>
-            <p>Aria Vance automatically selects only the relevant specialists for each query. Tag with @Role for direct member answers!</p>
+            <p>COO Orion Vance clarifies directive requirements, Aria Vance splits sub-tasks & audits QA, re-assigning sub-tasks if quality fails!</p>
           </div>
         </div>
 
@@ -305,7 +346,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-purple-400" />
-                <h3 className="text-sm font-bold text-white">Live Persistent Boardroom Transcript</h3>
+                <h3 className="text-sm font-bold text-white">Live Boardroom Operational Transcript</h3>
               </div>
               {huddleMessages.length > 0 && (
                 <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
@@ -323,7 +364,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   </div>
                   <h4 className="text-sm font-medium text-slate-300">Boardroom Transcript Empty</h4>
                   <p className="text-xs max-w-sm mt-1">
-                    Convene a huddle above or type a message below to talk directly with your executive crew.
+                    Convene a huddle above or type a directive below to start COO operational synchronization.
                   </p>
                 </div>
               ) : (
@@ -332,7 +373,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                     key={msg.id} 
                     className={`glass-card p-4 space-y-2 border-slate-800/80 ${
                       msg.agentRole === 'CEO' ? 'border-l-4 border-l-purple-500 bg-purple-950/20' : ''
-                    }`}
+                    } ${msg.isClarificationRequest ? 'border-l-4 border-l-sky-400 bg-sky-950/20' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -355,16 +396,109 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                       {msg.content}
                     </p>
 
-                    {/* Routing Reasoning Badge if present */}
-                    {msg.routingReasoning && (
-                      <div className="ml-9 text-[10px] text-cyan-400/80 font-mono flex items-center gap-1">
-                        <Compass className="w-3 h-3 text-cyan-400" /> Routing Decision: {msg.routingReasoning}
+                    {/* Sub-Task Bifurcation & QA Audit Accordion */}
+                    {msg.subTasks && msg.subTasks.length > 0 && (
+                      <div className="ml-9 mt-3 pt-3 border-t border-slate-800/80 space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleSubTasksExpand(msg.id)}
+                          className="flex items-center justify-between w-full text-xs font-semibold text-purple-300 bg-slate-900/90 px-3 py-2 rounded-lg border border-slate-800 hover:border-purple-500/40 transition-all"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <GitPullRequest className="w-3.5 h-3.5 text-purple-400" />
+                            Aria Vance Sub-Task Bifurcation & QA Audit ({msg.subTasks.length} Sub-Tasks)
+                          </span>
+                          {expandedSubTasksId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+
+                        {expandedSubTasksId === msg.id && (
+                          <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 space-y-3 text-xs animate-fadeIn">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                              <span>Sub-Task Work Breakdown & Closed-Loop QA</span>
+                              <span className="text-purple-400 font-mono text-[10px]">GitHub Projects Integration</span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {msg.subTasks.map((st) => (
+                                <div key={st.id} className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`badge ${st.badgeClass} text-[10px]`}>{st.assigneeRole}</span>
+                                      <span className="font-semibold text-white text-xs">{st.title}</span>
+                                    </div>
+
+                                    {st.status === 'COMPLETED' ? (
+                                      <span className="badge badge-cfo text-[10px] flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3" /> QA PASSED
+                                      </span>
+                                    ) : (
+                                      <span className="badge badge-cmo text-[10px] flex items-center gap-1 animate-pulse">
+                                        <AlertCircle className="w-3 h-3" /> REASSIGNED (QA FAILED)
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className="text-[11px] text-slate-400">{st.description}</p>
+
+                                  {/* QA Audit Feedback */}
+                                  {st.qaAudit && (
+                                    <div className={`p-2 rounded border text-[11px] ${
+                                      st.qaAudit.passed 
+                                        ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
+                                        : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
+                                    }`}>
+                                      <div className="font-bold flex items-center justify-between">
+                                        <span>Audited by {st.qaAudit.auditedBy}</span>
+                                        <span className="text-[9px] opacity-75 font-mono">{formatTimestamp(st.qaAudit.auditedAt)}</span>
+                                      </div>
+                                      <p className="mt-0.5">{st.qaAudit.feedback}</p>
+
+                                      {!st.qaAudit.passed && (
+                                        <button
+                                          onClick={() => handleReAuditSubTask(msg.id, st.id)}
+                                          className="mt-2 btn-secondary text-[10px] py-1 px-2.5 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/40 flex items-center gap-1"
+                                        >
+                                          <RefreshCw className="w-3 h-3" /> Re-Submit for QA Audit
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* GitHub Push Action */}
+                                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                                    <span className="text-[10px] text-slate-500 font-mono">Assigned to: {st.assigneeName}</span>
+                                    
+                                    {st.githubIssueUrl ? (
+                                      <a
+                                        href={st.githubIssueUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[10px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
+                                      >
+                                        <GitPullRequest className="w-3 h-3" /> View GitHub Project Issue
+                                      </a>
+                                    ) : (
+                                      <button
+                                        onClick={() => handlePushSubTaskToGitHub(st.id, st)}
+                                        disabled={ghSyncStatus[st.id] === 'syncing'}
+                                        className="text-[10px] text-purple-300 hover:text-purple-200 font-mono flex items-center gap-1 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/30"
+                                      >
+                                        <GitPullRequest className="w-3 h-3" /> 
+                                        {ghSyncStatus[st.id] === 'syncing' ? 'Syncing...' : 'Log on GitHub Projects'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {/* Expandable Internal Sub-Chat Drawer */}
                     {msg.internalSubChatLog && msg.internalSubChatLog.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-slate-800/80">
+                      <div className="mt-3 pt-2 border-t border-slate-800/80 pl-9">
                         <button
                           type="button"
                           onClick={() => toggleSubChatExpand(msg.id)}
@@ -372,7 +506,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                         >
                           <span className="flex items-center gap-1.5">
                             <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
-                            Inspect Targeted Sub-Chat ({msg.internalSubChatLog.length} Sub-Messages)
+                            Inspect Internal Thinking Sub-Chat ({msg.internalSubChatLog.length} Sub-Messages)
                           </span>
                           {expandedSubChatId === msg.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
@@ -429,7 +563,7 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
                   type="text"
                   value={userChatInput}
                   onChange={(e) => setUserChatInput(e.target.value)}
-                  placeholder="Ask a question or tag a member (e.g. @CTO how is database security? or @CFO what is burn rate?)..."
+                  placeholder="Ask COO Orion Vance or tag a member (e.g. @COO launch B2B tier or @CTO database status)..."
                   className="flex-1 text-xs py-2.5 bg-slate-900 border border-slate-700/90 rounded-xl"
                   disabled={isHuddling}
                 />

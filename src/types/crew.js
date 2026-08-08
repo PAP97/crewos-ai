@@ -1,5 +1,5 @@
 /**
- * @typedef {'CEO' | 'CSO' | 'CTO' | 'CMO' | 'CFO' | 'DEV' | 'PLANNER' | 'CUSTOM'} AgentRole
+ * @typedef {'CEO' | 'COO' | 'CSO' | 'CTO' | 'CMO' | 'CFO' | 'DEV' | 'PLANNER' | 'CUSTOM'} AgentRole
  */
 
 export const DEFAULT_CREW_ROSTER = [
@@ -17,16 +17,29 @@ export const DEFAULT_CREW_ROSTER = [
     status: 'Active'
   },
   {
+    id: 'agent-coo',
+    name: 'Orion Vance',
+    title: 'Chief Operations Officer & CEO Liaison',
+    role: 'COO',
+    avatar: '💼',
+    color: '#38bdf8',
+    badgeClass: 'badge-cso',
+    description: 'Acts as direct CEO Liaison. Clarifies requirements with CEO, passes briefs to Aria Vance, and delivers executive status reports.',
+    capabilities: ['Requirement Clarification', 'Operational Dispatch', 'Executive Reporting', 'QA Oversight'],
+    systemPrompt: 'You are the Chief Operations Officer and CEO Liaison. Clarify ambiguous requests with the CEO before briefing Aria Vance, and report closed-loop QA updates.',
+    status: 'Active'
+  },
+  {
     id: 'agent-cso',
     name: 'Aria Vance',
-    title: 'Chief Strategy Officer',
+    title: 'Chief Strategy Officer & Quality Director',
     role: 'CSO',
     avatar: '♟️',
     color: '#06b6d4',
     badgeClass: 'badge-cso',
-    description: 'Formulates growth roadmaps, analyzes competitive moats, identifies market opportunities.',
-    capabilities: ['Market Analysis', 'Growth Strategy', 'Competitive Moats', 'Risk Auditing'],
-    systemPrompt: 'You are the Chief Strategy Officer. Focus on high-level market positioning, scalable growth vectors, and long-term vision.',
+    description: 'Formulates growth roadmaps, bifurcates directives into sub-tasks, logs GitHub Projects, and audits sub-task QA.',
+    capabilities: ['Sub-Task Bifurcation', 'GitHub Projects Tracking', 'Quality Assurance Audit', 'Sub-Task Re-assignment'],
+    systemPrompt: 'You are the Chief Strategy Officer and Quality Director. Bifurcate directives into sub-tasks, track on GitHub Projects, and audit QA quality.',
     status: 'Active'
   },
   {
@@ -118,7 +131,7 @@ export const INITIAL_PROPOSALS = [
     proposer: 'Aria Vance (CSO)',
     proposerRole: 'CSO',
     category: 'Product Strategy',
-    status: 'PENDING_APPROVAL', // PENDING_APPROVAL | APPROVED | REJECTED | REVISION_REQUESTED
+    status: 'PENDING_APPROVAL',
     summary: 'Proposing a full launch of our Executive AI Crew Platform targeting tech leaders and founders who want an autonomous C-suite team.',
     financialImpact: {
       budgetRequired: '$5,000',
