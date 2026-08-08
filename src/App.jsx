@@ -7,6 +7,7 @@ import ExecutionBoard from './components/ExecutionBoard';
 import CrewRoster from './components/CrewRoster';
 import GitHubSettingsModal from './components/GitHubSettingsModal';
 import ApiKeyModal from './components/ApiKeyModal';
+import SecurityGate from './components/SecurityGate';
 
 import { DEFAULT_CREW_ROSTER, INITIAL_PROPOSALS } from './types/crew';
 import { getMemories, addMemory } from './services/memoryService';
@@ -133,96 +134,98 @@ export default function App() {
   const isGitHubConnected = Boolean(gitHubConfig.token && gitHubConfig.repo);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      
-      {/* Top Header */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        pendingApprovalsCount={proposals.filter(p => p.status === 'PENDING_APPROVAL').length}
-        memoryCount={memories.length}
-        isGitHubConnected={isGitHubConnected}
-        onOpenGitHubSettings={() => setIsGitHubModalOpen(true)}
-        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
-      />
-
-      {/* Main Workspace Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-8">
+    <SecurityGate>
+      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         
-        {/* Toast Alert */}
-        {toastNotification && (
-          <div className="fixed bottom-6 right-6 z-50 animate-bounce">
-            <div className="glass-panel px-5 py-3 border-purple-500/40 text-xs font-semibold text-white shadow-2xl flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-              {toastNotification.message}
+        {/* Top Header */}
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          pendingApprovalsCount={proposals.filter(p => p.status === 'PENDING_APPROVAL').length}
+          memoryCount={memories.length}
+          isGitHubConnected={isGitHubConnected}
+          onOpenGitHubSettings={() => setIsGitHubModalOpen(true)}
+          onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        />
+
+        {/* Main Workspace Container */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-8">
+          
+          {/* Toast Alert */}
+          {toastNotification && (
+            <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+              <div className="glass-panel px-5 py-3 border-purple-500/40 text-xs font-semibold text-white shadow-2xl flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
+                {toastNotification.message}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Tab Router */}
-        {activeTab === 'BOARDROOM' && (
-          <Boardroom
-            crewRoster={crewRoster}
-            onProposalGenerated={handleProposalGenerated}
+          {/* Tab Router */}
+          {activeTab === 'BOARDROOM' && (
+            <Boardroom
+              crewRoster={crewRoster}
+              onProposalGenerated={handleProposalGenerated}
+            />
+          )}
+
+          {activeTab === 'APPROVALS' && (
+            <ApprovalQueue
+              proposals={proposals}
+              onApprove={handleApproveProposal}
+              onReject={handleRejectProposal}
+              onRequestRevision={handleRequestRevision}
+            />
+          )}
+
+          {activeTab === 'MEMORY' && (
+            <MemoryVault
+              memories={memories}
+              setMemories={setMemories}
+              gitHubConfig={gitHubConfig}
+              onOpenGitHubSettings={() => setIsGitHubModalOpen(true)}
+            />
+          )}
+
+          {activeTab === 'EXECUTION' && (
+            <ExecutionBoard
+              tasks={executionTasks}
+              gitHubConfig={gitHubConfig}
+              onOpenGitHubSettings={() => setIsGitHubModalOpen(true)}
+            />
+          )}
+
+          {activeTab === 'ROSTER' && (
+            <CrewRoster
+              crewRoster={crewRoster}
+              setCrewRoster={setCrewRoster}
+            />
+          )}
+
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+          <p>CrewOS AI &copy; {new Date().getFullYear()} — Autonomous Executive Crew Platform with CEO Governance & GitHub Memory Sync</p>
+        </footer>
+
+        {/* GitHub Settings Modal */}
+        {isGitHubModalOpen && (
+          <GitHubSettingsModal
+            config={gitHubConfig}
+            setConfig={setGitHubConfig}
+            onClose={() => setIsGitHubModalOpen(false)}
           />
         )}
 
-        {activeTab === 'APPROVALS' && (
-          <ApprovalQueue
-            proposals={proposals}
-            onApprove={handleApproveProposal}
-            onReject={handleRejectProposal}
-            onRequestRevision={handleRequestRevision}
+        {/* AI Key Config Modal */}
+        {isApiKeyModalOpen && (
+          <ApiKeyModal
+            onClose={() => setIsApiKeyModalOpen(false)}
           />
         )}
 
-        {activeTab === 'MEMORY' && (
-          <MemoryVault
-            memories={memories}
-            setMemories={setMemories}
-            gitHubConfig={gitHubConfig}
-            onOpenGitHubSettings={() => setIsGitHubModalOpen(true)}
-          />
-        )}
-
-        {activeTab === 'EXECUTION' && (
-          <ExecutionBoard
-            tasks={executionTasks}
-            gitHubConfig={gitHubConfig}
-            onOpenGitHubSettings={() => setIsGitHubModalOpen(true)}
-          />
-        )}
-
-        {activeTab === 'ROSTER' && (
-          <CrewRoster
-            crewRoster={crewRoster}
-            setCrewRoster={setCrewRoster}
-          />
-        )}
-
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-        <p>CrewOS AI &copy; {new Date().getFullYear()} — Autonomous Executive Crew Platform with CEO Governance & GitHub Memory Sync</p>
-      </footer>
-
-      {/* GitHub Settings Modal */}
-      {isGitHubModalOpen && (
-        <GitHubSettingsModal
-          config={gitHubConfig}
-          setConfig={setGitHubConfig}
-          onClose={() => setIsGitHubModalOpen(false)}
-        />
-      )}
-
-      {/* AI Key Config Modal */}
-      {isApiKeyModalOpen && (
-        <ApiKeyModal
-          onClose={() => setIsApiKeyModalOpen(false)}
-        />
-      )}
-
-    </div>
+      </div>
+    </SecurityGate>
   );
 }
