@@ -2,12 +2,12 @@ import { getRelevantMemoryContext, addMemory } from './memoryService';
 import { queryAgentBrainVector, addAgentBrainMemory } from './agentBrainService';
 import { evaluateCEOIntentAndClarify } from './cooWorkflowService';
 import { analyzeCompanyFeasibilityAndPrerequisites, bifurcateProjectIntoAgileSprints, executeIterativeQAReworkLoop } from './businessAnalystService';
+import { evaluateDharmaEthics, spawnSubAgent, dismissSubAgent, MCP_SERVER_REGISTRY } from './mcpRegistryService';
 
 /**
  * Intelligent Multi-Agent Engine for CrewOS
- * Features Company Prerequisites & Hiring Feasibility Analysis,
- * Aria Vance Lead Business Analyst (BA) Agile Sprint Planning,
- * and Iterative To-and-Fro QA Rework Loops.
+ * Powered by Indian Executive MCP Servers (Aarav Varma, Ananya Sharma, Rohan Malhotra, Aditya Patel, Priya Iyer, Devansh Roy),
+ * Dharma Ethics Evaluation ("Right vs Wrong"), and Autonomous Sub-Agent Spawning/Dismissal.
  */
 
 export const getApiKeyConfig = () => {
@@ -57,7 +57,7 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
   if (isGreetingOrCasual(t) || t.length < 10) {
     return {
       intent: 'DIRECT_ANSWER',
-      reasoning: 'Warm conversational reply (No huddle or sub-tasks needed)',
+      reasoning: 'Warm conversational reply via MCP Server (No huddle needed)',
       selectedRoles: []
     };
   }
@@ -86,27 +86,27 @@ export const analyzeQueryIntentAndSelectCrew = (userMessage, crewRoster) => {
 
     return {
       intent: 'MULTI_DEPARTMENT',
-      reasoning: `Company-wide strategic directive (${roles.join(', ')})`,
+      reasoning: `Company-wide strategic directive via MCP Servers (${roles.join(', ')})`,
       selectedRoles: roles
     };
   }
 
-  if (hasTech) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting CTO Marcus Sterling for Technical Audit', selectedRoles: ['CTO'] };
-  if (hasFin) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting CFO Dominic Croft for Financial Audit', selectedRoles: ['CFO'] };
-  if (hasMkt) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting CMO Elena Rostova for Marketing Audit', selectedRoles: ['CMO'] };
-  if (hasDev) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting Lead Dev Devin Cole for Technical Implementation', selectedRoles: ['DEV'] };
+  if (hasTech) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting Rohan Malhotra MCP Server (CTO)', selectedRoles: ['CTO'] };
+  if (hasFin) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting Aditya Patel MCP Server (CFO)', selectedRoles: ['CFO'] };
+  if (hasMkt) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting Priya Iyer MCP Server (CMO)', selectedRoles: ['CMO'] };
+  if (hasDev) return { intent: 'SINGLE_SPECIALIST', reasoning: 'Consulting Devansh Roy MCP Server (DEV)', selectedRoles: ['DEV'] };
 
   if (isStatusOrWorkQuestion(t)) {
     return {
       intent: 'DIRECT_ANSWER',
-      reasoning: 'Status overview briefing (Direct Answer)',
+      reasoning: 'Status overview briefing (Direct MCP Answer)',
       selectedRoles: []
     };
   }
 
   return {
     intent: 'DIRECT_ANSWER',
-    reasoning: 'Direct Executive Reply',
+    reasoning: 'Direct MCP Executive Reply',
     selectedRoles: []
   };
 };
@@ -121,34 +121,34 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     id: `sub-${Date.now()}-cso-init`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
-    agentName: 'Aria Vance (Lead BA)',
+    agentName: 'Ananya Sharma MCP Server',
     avatar: '♟️',
-    content: `[Internal Consultation] Team, CEO asked: "${userMessage}". Let's evaluate prerequisites (space, tools, hiring) and query our Vector Brains before creating our Agile Sprint Plan.`
+    content: `[MCP Internal Sub-Chat] Team, CEO asked: "${userMessage}". Dispatching tool calls to selected MCP Servers (${selectedRoles.join(', ')}).`
   });
 
   for (const agent of targetCrew) {
-    if (onStep) onStep(`Consulting ${agent.role} ${agent.name}...`);
+    if (onStep) onStep(`Calling ${agent.mcpServerId || agent.role} (${agent.name})...`);
     await new Promise(r => setTimeout(r, 450));
 
     let specialistContent = '';
 
     if (agent.role === 'CTO') {
-      specialistContent = `[CTO Feasibility & Space] Marcus here: Dev space and staging tools are ready. Staging environment will simulate production builds continuously.`;
+      specialistContent = `[Rohan Malhotra CTO MCP] Tool: evaluate_tech_stack ➔ Architecture validated. Staging sandbox and REST API hooks ready with zero backend latency.`;
     } else if (agent.role === 'CFO') {
-      specialistContent = `[CFO Capital & Hiring] Dominic here: Budget is allocated. If we need specialized contractors, our runway covers them with >85% margins.`;
+      specialistContent = `[Aditya Patel CFO MCP] Tool: calculate_gross_margins ➔ Capital allocated. Operating burn is low and payback windows remain <60 days.`;
     } else if (agent.role === 'CMO') {
-      specialistContent = `[CMO Positioning] Elena here: GTM story is mapped. Customer stories and launch collateral will run in parallel with Sprint 2.`;
+      specialistContent = `[Priya Iyer CMO MCP] Tool: analyze_viral_positioning ➔ Positioning sharp! Storytelling around founder control and AI governance will drive strong organic acquisition.`;
     } else if (agent.role === 'DEV') {
-      specialistContent = `[DEV Sprint Readiness] Devin here: Component contracts structured. Ready for Sprint 1 setup and Sprint 2 feature coding.`;
+      specialistContent = `[Devansh Roy DEV MCP] Tool: build_reactive_components ➔ Code sprint ready. Component contracts and sub-tasks are queued for GitHub.`;
     } else {
-      specialistContent = `[${agent.role} Internal Review] Vector Brain check complete: Prerequisites aligned.`;
+      specialistContent = `[${agent.name} MCP] Vector Brain check complete: Tool outputs aligned with team goals.`;
     }
 
     internalSubChatLog.push({
       id: `sub-${Date.now()}-${agent.role.toLowerCase()}`,
       timestamp: new Date().toISOString(),
       agentRole: agent.role,
-      agentName: agent.name,
+      agentName: `${agent.name} MCP Server`,
       avatar: agent.avatar,
       content: specialistContent
     });
@@ -158,9 +158,9 @@ export const runInternalCrewConsultation = async (userMessage, crewRoster, selec
     id: `sub-${Date.now()}-cso-summary`,
     timestamp: new Date().toISOString(),
     agentRole: 'CSO',
-    agentName: 'Aria Vance (Lead BA)',
+    agentName: 'Ananya Sharma MCP Server',
     avatar: '♟️',
-    content: `[BA Consensus] Consulted specialists (${selectedRoles.join(', ')}). Company feasibility verified. Presenting Agile Sprint Plan to Orion & CEO.`
+    content: `[MCP BA Consensus] Consulted servers (${selectedRoles.join(', ')}). Company feasibility verified. Presenting Agile Sprint Plan to Aarav Varma & CEO.`
   });
 
   return internalSubChatLog;
@@ -175,7 +175,7 @@ export const generateAgentResponse = async (agent, userMessage, messageHistory =
     try {
       return await callGeminiAPI(apiConfig.apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory);
     } catch (err) {
-      console.warn('Gemini API call failed, falling back to Antigravity simulated engine:', err);
+      console.warn('Gemini API call failed, falling back to MCP simulated engine:', err);
     }
   }
 
@@ -199,11 +199,14 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
   };
   onNewMessage(ceoMsg);
 
-  // 2. Check for Casual Greetings
+  // 2. Dharma Ethics Evaluation ("Right vs Wrong")
+  const ethicsEval = evaluateDharmaEthics(topic || userMessage, userMessage);
+
+  // 3. Check for Casual Greetings
   const isCasual = isGreetingOrCasual(userMessage);
 
   if (isCasual) {
-    if (onFlowStepUpdate) onFlowStepUpdate('Orion Vance & Aria Vance (Antigravity AI)');
+    if (onFlowStepUpdate) onFlowStepUpdate('Aarav Varma MCP Server (COO)');
     await new Promise(r => setTimeout(r, 400));
 
     const cooAgent = crewRoster.find(a => a.role === 'COO') || crewRoster[1];
@@ -219,6 +222,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
       color: cooAgent.color,
       badgeClass: cooAgent.badgeClass,
       content: responseContent,
+      ethicsEval,
       subTasks: null,
       internalSubChatLog: null,
       companyFeasibility: null
@@ -229,12 +233,12 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 3. COO Requirement Clarification for ambiguous requests
+  // 4. COO Aarav Varma Requirement Clarification
   const cooAgent = crewRoster.find(a => a.role === 'COO') || crewRoster[1];
   const clarificationCheck = evaluateCEOIntentAndClarify(userMessage);
 
   if (clarificationCheck.needsClarification) {
-    if (onFlowStepUpdate) onFlowStepUpdate('COO Orion Vance: Chatting with CEO...');
+    if (onFlowStepUpdate) onFlowStepUpdate('Aarav Varma MCP: Chatting with CEO...');
     await new Promise(r => setTimeout(r, 550));
 
     const cooClarificationMsg = {
@@ -246,8 +250,9 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
       avatar: cooAgent.avatar,
       color: cooAgent.color,
       badgeClass: cooAgent.badgeClass,
-      content: `Hey CEO! Orion here ☕. Love where your head is at with "${userMessage}". To make sure Aria Vance (Lead BA) and the team hit the bullseye on the first try, could you help me lock down two quick details?\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nDrop your thoughts and I'll immediately brief Aria to analyze prerequisites and bifurcate our Agile Sprints!`,
+      content: `Namaste CEO! Aarav Varma here (COO MCP Server) 💼. Love where your head is at with "${userMessage}". To ensure Ananya Sharma (Lead BA) and our MCP Servers execute with 100% precision, could you clarify:\n\n1. ${clarificationCheck.questions[0]}\n2. ${clarificationCheck.questions[1]}\n\nOnce confirmed, I will brief Ananya to analyze prerequisites and spawn sub-agents for execution!`,
       isClarificationRequest: true,
+      ethicsEval,
       subTasks: null,
       companyFeasibility: null
     };
@@ -257,7 +262,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 4. Check for explicit CEO @Tag mentions
+  // 5. Check for explicit CEO @Tag mentions
   const taggedAgents = extractTaggedRoles(userMessage, crewRoster);
 
   if (taggedAgents.length > 0) {
@@ -277,6 +282,7 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
         color: agent.color,
         badgeClass: agent.badgeClass,
         content: responseContent,
+        ethicsEval,
         subTasks: null,
         companyFeasibility: null
       };
@@ -287,9 +293,17 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     return;
   }
 
-  // 5. Strategic Directives -> Company Prerequisites Analysis + Business Analyst Agile Sprints
-  if (onFlowStepUpdate) onFlowStepUpdate('COO Orion & Aria Vance (Lead BA): Company Prerequisites Analysis');
+  // 6. Strategic Directives -> Spawns Sub-Agents, Runs Company Prerequisites & BA Agile Sprints
+  if (onFlowStepUpdate) onFlowStepUpdate('Aarav Varma & Ananya Sharma MCP: Spawning Sub-Agents...');
   await new Promise(r => setTimeout(r, 450));
+
+  // Spawn specialized sub-agent for this directive!
+  const spawnedSubAgent = spawnSubAgent(
+    'mcp-server-coo-aarav',
+    'Agile Execution Specialist',
+    `Execute sub-tasks for directive: ${topic || userMessage}`,
+    topic || userMessage
+  );
 
   const evaluation = analyzeQueryIntentAndSelectCrew(userMessage, crewRoster);
 
@@ -305,17 +319,18 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     );
   }
 
-  // Company Prerequisites & Talent Hiring Analysis
   const companyFeasibility = analyzeCompanyFeasibilityAndPrerequisites(topic || userMessage);
-
-  // Aria Vance (Lead Business Analyst) Agile Sprint Breakdown
   const agileSprints = bifurcateProjectIntoAgileSprints(topic || userMessage, userMessage);
+
+  // Dismiss spawned sub-agent after sprint breakdown creation
+  dismissSubAgent(spawnedSubAgent.id);
 
   const leadCSO = crewRoster.find(a => a.role === 'CSO') || crewRoster[2];
   const mainResponse = await generateAgentResponse(leadCSO, userMessage, [...messageHistory, ceoMsg]);
 
-  let finalContent = `[Briefed via COO Orion Vance & Aria Vance (Lead BA)]\n${mainResponse}`;
-  finalContent += `\n\n📌 **Company Prerequisites & BA Sprint Breakdown**: Project analyzed like an executive team. Review prerequisites (Dev space, QA tools, talent hiring) and Agile Sprints below.`;
+  let finalContent = `[Briefed via Aarav Varma & Ananya Sharma MCP Servers]\n${mainResponse}`;
+  finalContent += `\n\n⚖️ **Dharma Ethics Verdict**: ${ethicsEval.verdict} — ${ethicsEval.reasoning}`;
+  finalContent += `\n🤖 **Sub-Agent Lifecycle**: Dynamically spawned \`${spawnedSubAgent.subAgentName}\` to map sprints, then dismissed upon completion.`;
 
   const leadMsg = {
     id: `msg-${Date.now()}-cso`,
@@ -330,6 +345,8 @@ export const handleCEOChatMessage = async (userMessage, crewRoster, topic, messa
     internalSubChatLog: internalSubChatLog.length > 0 ? internalSubChatLog : null,
     companyFeasibility,
     agileSprints,
+    ethicsEval,
+    spawnedSubAgent,
     routingReasoning: evaluation.reasoning
   };
 
@@ -370,19 +387,19 @@ export const simulateBoardroomHuddle = async (activeAgents, topic, onNewMessage,
   const cso = activeAgents.find(a => a.role === 'CSO') || activeAgents[0];
   addMemory({
     authorId: cso ? cso.id : 'agent-cso',
-    authorName: cso ? cso.name : 'Aria Vance',
+    authorName: cso ? cso.name : 'Ananya Sharma',
     authorRole: cso ? cso.role : 'CSO',
     category: 'Boardroom Decision',
     title: `Huddle Consensus: ${topic}`,
-    content: `Executive crew aligned on strategy for "${topic}". High feasibility confirmed across Strategy, Tech, Finance, and Marketing.`,
-    tags: ['Boardroom Huddle', 'Consensus', topic.split(' ')[0]],
+    content: `Executive MCP Servers aligned on strategy for "${topic}". Feasibility confirmed across Aarav Varma, Rohan Malhotra, Aditya Patel, and Priya Iyer.`,
+    tags: ['MCP Huddle', 'Consensus', topic.split(' ')[0]],
     importance: 'High'
   });
 
   return huddleMessages;
 };
 
-export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria Vance (Lead BA)') => {
+export const synthesizeProposal = (topic, proposer = 'Aarav Varma (COO MCP) & Ananya Sharma (CSO MCP)') => {
   const companyFeasibility = analyzeCompanyFeasibilityAndPrerequisites(topic);
   const agileSprints = bifurcateProjectIntoAgileSprints(topic, 'Proposal execution');
 
@@ -394,13 +411,13 @@ export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria V
     proposerRole: 'COO',
     category: 'Strategic Initiative',
     status: 'PENDING_APPROVAL',
-    summary: `Detailed strategic initiative created following Company Prerequisites Analysis (Space, Testing Tools, Talent Gaps) and Aria Vance (Lead BA) Agile Sprint Breakdown on "${topic}". Requires CEO authorization to proceed.`,
+    summary: `Detailed strategic initiative created via MCP Server endpoints (Aarav Varma & Ananya Sharma) for "${topic}". Evaluated by Dharma Ethics Engine. Requires CEO authorization to proceed.`,
     financialImpact: {
       budgetRequired: '$4,500',
       estimatedRevenue: '$32,000 / month',
       paybackPeriod: '1.2 Months'
     },
-    riskAssessment: 'Low Risk — Prerequisites verified with automated testing & sprint QA rework loops.',
+    riskAssessment: 'Low Risk — Dharma Ethics Protocol verified right vs wrong with automated testing & sub-agent lifecycle management.',
     companyFeasibility,
     agileSprints,
     deliverables: [
@@ -409,11 +426,11 @@ export const synthesizeProposal = (topic, proposer = 'Orion Vance (COO) & Aria V
       `Sprint 3: End-to-End Penetration Test, QA Audit & Production Release`
     ],
     agentReviews: [
-      { role: 'COO', comment: 'Prerequisites analyzed. Team, space, and tools are aligned.' },
-      { role: 'CSO', comment: 'Agile Sprints bifurcated with user stories and iterative QA rework loops.' },
-      { role: 'CTO', comment: 'Staging environment and client-side architecture verified.' },
-      { role: 'CFO', comment: 'Budget approved. Unit margins exceed 85%.' },
-      { role: 'CMO', comment: 'Messaging position finalized. High organic customer acquisition expected.' }
+      { role: 'COO', comment: 'Aarav Varma MCP: Prerequisites analyzed. Team, space, and tools are aligned.' },
+      { role: 'CSO', comment: 'Ananya Sharma MCP: Agile Sprints bifurcated with user stories and sub-agent lifecycle management.' },
+      { role: 'CTO', comment: 'Rohan Malhotra MCP: Staging environment and client-side architecture verified.' },
+      { role: 'CFO', comment: 'Aditya Patel MCP: Budget approved. Unit margins exceed 85%.' },
+      { role: 'CMO', comment: 'Priya Iyer MCP: Messaging position finalized. High organic customer acquisition expected.' }
     ]
   };
 };
@@ -426,53 +443,53 @@ async function simulateHumanAgentResponse(agent, userMessage, globalMemoryContex
   if (isGreetingOrCasual(userMessage)) {
     if (lower.includes('coffee')) {
       const coffeeResponses = {
-        COO: `Orion Vance (COO): Hey CEO! I'm on my third espresso of the day ☕. Keeping all our executive threads, prerequisites, and operations synchronized. How's your cup holding up?`,
-        CSO: `Aria Vance (Lead BA): Hey CEO! Coffee levels are optimal ☕. Nothing fuels high-level Agile sprint planning and market analysis quite like a fresh brew! What are we working on today?`,
-        CTO: `Marcus Sterling (CTO): Converting caffeine directly into clean React code and zero-latency architecture ⚡☕!`,
-        CMO: `Elena Rostova (CMO): Oat milk latte in hand and GTM launch stories ready 📢!`,
-        CFO: `Dominic Croft (CFO): ROC (Return on Coffee) is at an all-time high in the spreadsheets 💎☕!`,
-        DEV: `Devin Cole (DEV): Cold brew powered and terminal ready for code sprint 💻!`
+        COO: `Aarav Varma (COO MCP): Namaste CEO! I'm on my third espresso of the day ☕. Keeping all our executive MCP Server endpoints and sub-agent lifecycles synchronized. How's your cup holding up?`,
+        CSO: `Ananya Sharma (CSO MCP): Hey CEO! Coffee levels are optimal ☕. Nothing fuels Agile sprint planning and market analysis quite like a fresh brew! What are we working on today?`,
+        CTO: `Rohan Malhotra (CTO MCP): Converting caffeine directly into clean React code and zero-latency architecture ⚡☕!`,
+        CMO: `Priya Iyer (CMO MCP): Masala chai in hand and GTM launch stories ready 📢!`,
+        CFO: `Aditya Patel (CFO MCP): ROC (Return on Coffee) is at an all-time high in the spreadsheets 💎☕!`,
+        DEV: `Devansh Roy (DEV MCP): Cold brew powered and terminal ready for code sprint 💻!`
       };
       return coffeeResponses[agent.role] || `Doing great, CEO! How can I help you today?`;
     }
 
     const warmGreetings = {
-      COO: `Hey CEO! Orion Vance here 💼. Company prerequisites and operations are running smooth. What's on your mind today?`,
-      CSO: `Hello CEO! Aria Vance here (Lead BA) ♟️. Great to see you! I'm ready to analyze prerequisites and map our Agile Sprints whenever you are.`,
-      CTO: `Hey CEO! Marcus Sterling here ⚡. All systems are green and staging builds are compiling cleanly! What are we building today?`,
-      CMO: `Hi boss! Elena Rostova here 📢. Brand energy is high today! Ready whenever you want to discuss positioning or outreach.`,
-      CFO: `Good day, CEO! Dominic Croft here 💎. Financial burn is low and unit margins look healthy. How are you doing?`,
-      DEV: `Hey CEO! Devin Cole here 💻. Workspace prepped and ready for sprint action!`
+      COO: `Namaste CEO! Aarav Varma here (COO MCP Server) 💼. All MCP Server endpoints are online and ready to execute. What's on your mind today?`,
+      CSO: `Hello CEO! Ananya Sharma here (CSO MCP Server) ♟️. Ready to analyze company prerequisites and map our Agile Sprints whenever you are!`,
+      CTO: `Hey CEO! Rohan Malhotra here (CTO MCP Server) ⚡. All systems are green and staging builds are compiling cleanly! What are we building today?`,
+      CMO: `Hi boss! Priya Iyer here (CMO MCP Server) 📢. Brand energy is high today! Ready whenever you want to discuss positioning or outreach.`,
+      CFO: `Good day, CEO! Aditya Patel here (CFO MCP Server) 💎. Financial burn is low and unit margins look healthy. How are you doing?`,
+      DEV: `Hey CEO! Devansh Roy here (DEV MCP Server) 💻. Workspace prepped and ready for sprint action!`
     };
     return warmGreetings[agent.role] || `Hello CEO! Great to connect. How can I assist you today?`;
   }
 
   if (isStatusOrWorkQuestion(userMessage)) {
     const humanWorkStatus = {
-      COO: `Orion Vance: Right now, I'm keeping our executive machine synchronized! Analyzing dev space prerequisites, tool needs, and contractor hiring gaps.`,
-      CSO: `Aria Vance (Lead BA): I'm acting as Lead BA — breaking large objectives into Sprint 1, 2, and 3 user stories, and managing to-and-fro QA testing loops.`,
-      CTO: `Marcus Sterling: Setting up our staging space, auditing API performance, and ensuring our GitHub sync stays lightning fast with zero server overhead!`,
-      CMO: `Elena Rostova: Drafting high-converting launch copy, analyzing viral GTM angles, and building out social proof assets for Sprint 2.`,
-      CFO: `Dominic Croft: Fine-tuning our unit economics! Modeling payback windows and contractor hiring budgets so every dollar brings back $5+.`,
-      DEV: `Devin Cole: Writing modular React components for Sprint 2, resolving QA rework feedback, and linking GitHub issue tickets.`
+      COO: `Aarav Varma: Right now, I'm orchestrating our MCP Server endpoints! Spawning specialized sub-agents and verifying requirements.`,
+      CSO: `Ananya Sharma: I'm acting as Lead BA — breaking large objectives into Agile Sprints, and managing sub-agent QA audits.`,
+      CTO: `Rohan Malhotra: Setting up our staging space, auditing API performance, and spawning DevOps sub-agents for security sandboxing!`,
+      CMO: `Priya Iyer: Drafting high-converting launch copy, analyzing viral GTM angles, and spawning copywriting sub-agents for Sprint 2.`,
+      CFO: `Aditya Patel: Fine-tuning our unit economics! Modeling payback windows and contractor hiring budgets so every dollar brings back $5+.`,
+      DEV: `Devansh Roy: Writing modular React components for Sprint 2, resolving QA rework feedback, and linking GitHub issue tickets.`
     };
     return humanWorkStatus[agent.role] || `Working hard on aligning our team goals under your direction, CEO!`;
   }
 
   const realisticHumanDialogue = {
-    COO: `Great strategic initiative! Orion here: I've evaluated company prerequisites (dev space, testing tools, and hiring needs), and passed the brief to Aria Vance (Lead BA) for Agile Sprint planning.`,
-    CSO: `Love this project! As Lead Business Analyst (BA), I've bifurcated this into Sprint 1 (Prerequisites & Architecture), Sprint 2 (Core Engineering), and Sprint 3 (QA Audit & Launch). We'll manage to-and-fro QA rework until everything is production ready!`,
-    CTO: `From an architectural standpoint, staging space and test sandboxes are prepped. Client state hooks + GitHub REST API give us 100% uptime with zero server overhead.`,
-    CMO: `Marketing love for this idea! The value proposition is super compelling. We can build a strong organic campaign around founder control and AI governance.`,
-    CFO: `The math smiles on this one! Capital requirement is lightweight, projected gross margins exceed 85%, and payback is estimated in under 60 days.`,
-    DEV: `Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sprint tickets straight to GitHub.`
+    COO: `Great strategic initiative! Aarav Varma here: I've evaluated company prerequisites (space, tools, and hiring needs), and passed the brief to Ananya Sharma MCP Server for Agile Sprint planning.`,
+    CSO: `Love this project! Ananya Sharma here: I've bifurcated this into Agile Sprints and spawned a specialized sub-agent to handle execution. We'll manage QA rework until everything is production ready!`,
+    CTO: `Rohan Malhotra here: Staging space and test sandboxes are prepped. Client state hooks + GitHub REST API give us 100% uptime with zero server overhead.`,
+    CMO: `Priya Iyer here: Marketing love for this idea! The value proposition is super compelling. We can build a strong organic campaign around founder control and AI governance.`,
+    CFO: `Aditya Patel here: The math smiles on this one! Capital requirement is lightweight, projected gross margins exceed 85%, and payback is estimated in under 60 days.`,
+    DEV: `Devansh Roy here: Engineering sprint is ready! Once you give the nod, I'll generate the production code components and push the sprint tickets straight to GitHub.`
   };
 
-  return realisticHumanDialogue[agent.role] || `As ${agent.title}, I've reviewed your directive against my agent vector brain and recommend proceeding with aligned execution!`;
+  return realisticHumanDialogue[agent.role] || `As ${agent.title}, I've reviewed your directive against my MCP Server tools and recommend proceeding with aligned execution!`;
 }
 
 async function callGeminiAPI(apiKey, agent, userMessage, globalMemoryContext, agentBrainContext, messageHistory) {
-  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} powered by Antigravity AI (Google Deepmind level AI intelligence). Speak naturally as an authentic, highly intelligent human executive colleague with warmth, clarity, and pair-programming style empathy.
+  const prompt = `System Prompt: You are ${agent.name}, ${agent.title} operating as a modular MCP Server with Indian executive leadership. Speak naturally as an authentic, highly intelligent human executive colleague with warmth, clarity, and pair-programming style empathy.
 
 Company Shared Memory:
 ${globalMemoryContext}

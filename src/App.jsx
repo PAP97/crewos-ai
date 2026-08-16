@@ -5,6 +5,7 @@ import ApprovalQueue from './components/ApprovalQueue';
 import MemoryVault from './components/MemoryVault';
 import ExecutionBoard from './components/ExecutionBoard';
 import CrewRoster from './components/CrewRoster';
+import MCPControlHub from './components/MCPControlHub';
 import GitHubSettingsModal from './components/GitHubSettingsModal';
 import ApiKeyModal from './components/ApiKeyModal';
 import SecurityGate from './components/SecurityGate';
@@ -23,24 +24,24 @@ export default function App() {
       id: 'task-1',
       proposalId: 'prop-101',
       proposalTitle: 'Enterprise AI Crew Command Suite (v1.0)',
-      assigneeName: 'Devin Cole',
+      assigneeName: 'Devansh Roy',
       assigneeRole: 'DEV',
       badgeClass: 'badge-dev',
-      title: 'Vite React Architecture & Shared Memory Hooks',
-      filename: 'src/services/memoryService.js',
-      codeContent: `// Crew Shared Memory Hook Engine\nexport const useCrewMemory = () => {\n  // Syncs memories across localStorage and GitHub\n  return { memories, addMemory, syncToGitHub };\n};`,
-      description: 'Built high-throughput memory indexing with local storage persistence and GitHub REST sync.'
+      title: 'MCP Server Architecture & Shared Memory Hooks',
+      filename: 'src/services/mcpRegistryService.js',
+      codeContent: `// MCP Server Registry & Sub-Agent Engine\nexport const useMCPRegistry = () => {\n  return { mcpServers, spawnSubAgent, dismissSubAgent, evaluateDharmaEthics };\n};`,
+      description: 'Built MCP Server endpoints for Indian C-suite executives with autonomous sub-agent lifecycle management.'
     },
     {
       id: 'task-2',
       proposalId: 'prop-101',
       proposalTitle: 'Enterprise AI Crew Command Suite (v1.0)',
-      assigneeName: 'Elena Rostova',
+      assigneeName: 'Priya Iyer',
       assigneeRole: 'CMO',
       badgeClass: 'badge-cmo',
       title: 'GTM Positioning & Product Launch Strategy',
       codeContent: null,
-      description: 'Positioning: "Command an Autonomous C-Suite Crew with Complete CEO Governance". Launch vectors: ProductHunt, X (Twitter) thread series, & GitHub Pages live demo.'
+      description: 'Positioning: "Command an Autonomous C-Suite MCP Crew with Complete CEO Governance". Launch vectors: ProductHunt, X thread series, & GitHub Pages live demo.'
     }
   ]);
 
@@ -60,39 +61,36 @@ export default function App() {
     setTimeout(() => setToastNotification(null), 3500);
   };
 
-  // Handler: When a new proposal is created from Boardroom
   const handleProposalGenerated = (newProposal) => {
     setProposals(prev => [newProposal, ...prev]);
     setActiveTab('APPROVALS');
     showToast(`New directive "${newProposal.title}" submitted for CEO Approval!`, 'info');
   };
 
-  // Handler: CEO Approve Proposal
   const handleApproveProposal = (proposalId, feedback) => {
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'APPROVED', ceoFeedback: feedback } : p));
     
     const prop = proposals.find(p => p.id === proposalId);
     if (!prop) return;
 
-    // Automatically create Execution Tasks for Dev, CTO, CMO
     const newTasks = [
       {
         id: `task-${Date.now()}-dev`,
         proposalId: prop.id,
         proposalTitle: prop.title,
-        assigneeName: 'Devin Cole',
+        assigneeName: 'Devansh Roy',
         assigneeRole: 'DEV',
         badgeClass: 'badge-dev',
         title: `Code Implementation: ${prop.title}`,
         filename: `src/features/${prop.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.js`,
-        codeContent: `/**\n * Approved CEO Directive Implementation\n * Proposal: ${prop.title}\n * Authorized by: CEO (User)\n */\nexport const executeDirective = () => {\n  console.log("Executing approved directive with crew alignment...");\n  return { success: true, timestamp: "${new Date().toISOString()}" };\n};`,
+        codeContent: `/**\n * Approved CEO Directive Implementation\n * Proposal: ${prop.title}\n * Authorized by: CEO (User)\n * Executed by: Devansh Roy MCP Server\n */\nexport const executeDirective = () => {\n  console.log("Executing approved directive with MCP Server alignment...");\n  return { success: true, timestamp: "${new Date().toISOString()}" };\n};`,
         description: `Generated production implementation code for ${prop.title}`
       },
       {
         id: `task-${Date.now()}-cmo`,
         proposalId: prop.id,
         proposalTitle: prop.title,
-        assigneeName: 'Elena Rostova',
+        assigneeName: 'Priya Iyer',
         assigneeRole: 'CMO',
         badgeClass: 'badge-cmo',
         title: `GTM Campaign & Launch Strategy`,
@@ -103,29 +101,26 @@ export default function App() {
 
     setExecutionTasks(prev => [...newTasks, ...prev]);
 
-    // Record CEO approval in shared memory
     const memory = addMemory({
       authorId: 'agent-ceo',
       authorName: 'CEO (User)',
       authorRole: 'CEO',
       category: 'CEO Decision',
       title: `APPROVED: ${prop.title}`,
-      content: `CEO officially signed off on "${prop.title}". Budget authorized. Execution tasks dispatched to Lead Dev & CMO. Feedback: "${feedback || 'Proceed with excellence.'}"`,
-      tags: ['CEO Approval', 'Mandate', prop.category],
+      content: `CEO officially signed off on "${prop.title}". Budget authorized. Execution tasks dispatched to Devansh Roy & Priya Iyer. Feedback: "${feedback || 'Proceed with excellence.'}"`,
+      tags: ['CEO Approval', 'MCP Protocol', prop.category],
       importance: 'High'
     });
 
     setMemories(prev => [memory, ...prev]);
-    showToast(`Proposal Approved! Execution tasks dispatched to Crew.`, 'success');
+    showToast(`Proposal Approved! Execution tasks dispatched to MCP Crew.`, 'success');
   };
 
-  // Handler: CEO Reject Proposal
   const handleRejectProposal = (proposalId, feedback) => {
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'REJECTED', ceoFeedback: feedback } : p));
     showToast('Proposal rejected by CEO.', 'warning');
   };
 
-  // Handler: CEO Request Revision
   const handleRequestRevision = (proposalId, feedback) => {
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'REVISION_REQUESTED', ceoFeedback: feedback } : p));
     showToast('Revision requested. Crew will adjust strategy in Boardroom.', 'info');
@@ -169,6 +164,12 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'MCP_HUB' && (
+            <MCPControlHub
+              crewRoster={crewRoster}
+            />
+          )}
+
           {activeTab === 'APPROVALS' && (
             <ApprovalQueue
               proposals={proposals}
@@ -206,7 +207,7 @@ export default function App() {
 
         {/* Footer */}
         <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-          <p>CrewOS AI &copy; {new Date().getFullYear()} — Autonomous Executive Crew Platform with CEO Governance & GitHub Memory Sync</p>
+          <p>CrewOS AI &copy; {new Date().getFullYear()} — Autonomous Executive MCP Server Command Deck with CEO Governance & Indian C-Suite Roster</p>
         </footer>
 
         {/* GitHub Settings Modal */}

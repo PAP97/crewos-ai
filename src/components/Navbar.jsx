@@ -6,9 +6,9 @@ import {
   Layers, 
   Github, 
   Key, 
-  PlusCircle,
   Crown,
-  Sparkles
+  Sparkles,
+  Cpu
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -34,12 +34,12 @@ export default function Navbar({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
-                CrewOS <span className="text-xs px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 border border-purple-800/50 font-mono">v1.0 AI</span>
+                CrewOS <span className="text-xs px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 border border-purple-800/50 font-mono">v1.4 MCP</span>
               </h1>
             </div>
             <p className="text-xs text-slate-400 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              CEO Command & Autonomous Executive Crew
+              CEO Command & Indian Executive MCP Servers
             </p>
           </div>
         </div>
@@ -56,6 +56,18 @@ export default function Navbar({
           >
             <Users className="w-4 h-4" />
             Boardroom Huddle
+          </button>
+
+          <button
+            onClick={() => setActiveTab('MCP_HUB')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'MCP_HUB'
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Cpu className="w-4 h-4 text-cyan-400" />
+            MCP Control Hub
           </button>
 
           <button
