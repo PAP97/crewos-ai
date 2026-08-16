@@ -62,7 +62,22 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   useEffect(() => {
     try {
       const savedChat = localStorage.getItem(STORAGE_CHAT_KEY);
-      if (savedChat) setHuddleMessages(JSON.parse(savedChat));
+      if (savedChat) {
+        setHuddleMessages(JSON.parse(savedChat));
+      } else {
+        // Initial Fresh Welcome Message
+        setHuddleMessages([{
+          id: 'msg-init-fresh',
+          timestamp: new Date().toISOString(),
+          agentId: 'agent-ceo',
+          agentName: 'Executive Boardroom',
+          agentRole: 'CEO',
+          avatar: '👑',
+          color: '#8b5cf6',
+          badgeClass: 'badge-ceo',
+          content: `### [Boardroom Status: ONLINE]\nWelcome Founder! The Executive Startup Boardroom is initialized with your Core 6 Personas:\n• 👑 **CEO (Strategic Visionary)** — Direction, PMF & velocity.\n• 🎨 **CPO (User Advocate)** — User journeys & UX friction elimination.\n• ⚡ **CTO (Systems Architect)** — Scalable architecture, security & MCP servers.\n• 📢 **CMO (Growth Hacker)** — GTM positioning & low CAC customer acquisition.\n• 💎 **CFO (Fiscal Guardian)** — Unit economics, gross margins & runway.\n• 🛡️ **QA (Break-It Expert)** — Automated test-driven validation & self-correction.\n\nType your strategic directive below to initiate a multi-agent debate and agentic execution loop!`
+        }]);
+      }
 
       const savedChan = localStorage.getItem(STORAGE_CHANNELS_KEY);
       if (savedChan) setChannels(JSON.parse(savedChan));
@@ -87,8 +102,19 @@ export default function Boardroom({ crewRoster, onProposalGenerated }) {
   const activeChannel = channels.find(c => c.id === activeChannelId) || channels[0];
 
   const handleClearChatHistory = () => {
-    if (window.confirm('Clear transcript history for this channel?')) {
-      setHuddleMessages(prev => prev.filter(m => m.channelId !== activeChannelId));
+    if (window.confirm('Erase all chat history and start a fresh session?')) {
+      localStorage.removeItem(STORAGE_CHAT_KEY);
+      setHuddleMessages([{
+        id: `msg-fresh-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        agentId: 'agent-ceo',
+        agentName: 'Executive Boardroom',
+        agentRole: 'CEO',
+        avatar: '👑',
+        color: '#8b5cf6',
+        badgeClass: 'badge-ceo',
+        content: `### [Boardroom Status: FRESH SESSION STARTED]\nAll previous transcripts erased. The Executive Startup Boardroom (CEO, CPO, CTO, CMO, CFO, QA) is ready for your next directive!`
+      }]);
     }
   };
 
