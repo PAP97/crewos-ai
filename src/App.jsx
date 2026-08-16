@@ -5,7 +5,7 @@ import ApprovalQueue from './components/ApprovalQueue';
 import MemoryVault from './components/MemoryVault';
 import ExecutionBoard from './components/ExecutionBoard';
 import CrewRoster from './components/CrewRoster';
-import MCPControlHub from './components/MCPControlHub';
+import FullAiControlHub from './components/FullAiControlHub';
 import GitHubSettingsModal from './components/GitHubSettingsModal';
 import ApiKeyModal from './components/ApiKeyModal';
 import SecurityGate from './components/SecurityGate';
@@ -23,25 +23,25 @@ export default function App() {
     {
       id: 'task-1',
       proposalId: 'prop-101',
-      proposalTitle: 'Enterprise AI Crew Command Suite (v1.0)',
-      assigneeName: 'Devansh Roy',
-      assigneeRole: 'DEV',
-      badgeClass: 'badge-dev',
-      title: 'MCP Server Architecture & Shared Memory Hooks',
-      filename: 'src/services/mcpRegistryService.js',
-      codeContent: `// MCP Server Registry & Sub-Agent Engine\nexport const useMCPRegistry = () => {\n  return { mcpServers, spawnSubAgent, dismissSubAgent, evaluateDharmaEthics };\n};`,
-      description: 'Built MCP Server endpoints for Indian C-suite executives with autonomous sub-agent lifecycle management.'
+      proposalTitle: 'Enterprise AI Startup Boardroom Command Suite (v3.0)',
+      assigneeName: 'Rohan Malhotra (CTO)',
+      assigneeRole: 'CTO',
+      badgeClass: 'badge-cto',
+      title: 'Full Autonomous AI Agent Swarm Engine',
+      filename: 'src/services/fullAiAgentService.js',
+      codeContent: `// Full Autonomous AI Agent Engine\nexport const useFullAiAgents = () => {\n  return { agents, executeFullAiAgentReasoning, saveFullAiAgentsConfig };\n};`,
+      description: 'Engineered Full Autonomous AI Agent Engine for C-suite (CEO, CPO, CTO, CMO, CFO, QA) with individual vector memory banks.'
     },
     {
       id: 'task-2',
       proposalId: 'prop-101',
-      proposalTitle: 'Enterprise AI Crew Command Suite (v1.0)',
-      assigneeName: 'Priya Iyer',
+      proposalTitle: 'Enterprise AI Startup Boardroom Command Suite (v3.0)',
+      assigneeName: 'Priya Iyer (CMO)',
       assigneeRole: 'CMO',
       badgeClass: 'badge-cmo',
       title: 'GTM Positioning & Product Launch Strategy',
       codeContent: null,
-      description: 'Positioning: "Command an Autonomous C-Suite MCP Crew with Complete CEO Governance". Launch vectors: ProductHunt, X thread series, & GitHub Pages live demo.'
+      description: 'Positioning: "Command a Swarm of Full Autonomous AI Executives with Complete Founder Control". Launch vectors: ProductHunt & GitHub Pages live demo.'
     }
   ]);
 
@@ -75,22 +75,22 @@ export default function App() {
 
     const newTasks = [
       {
-        id: `task-${Date.now()}-dev`,
+        id: `task-${Date.now()}-cto`,
         proposalId: prop.id,
         proposalTitle: prop.title,
-        assigneeName: 'Devansh Roy',
-        assigneeRole: 'DEV',
-        badgeClass: 'badge-dev',
+        assigneeName: 'Rohan Malhotra (CTO)',
+        assigneeRole: 'CTO',
+        badgeClass: 'badge-cto',
         title: `Code Implementation: ${prop.title}`,
         filename: `src/features/${prop.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.js`,
-        codeContent: `/**\n * Approved CEO Directive Implementation\n * Proposal: ${prop.title}\n * Authorized by: CEO (User)\n * Executed by: Devansh Roy MCP Server\n */\nexport const executeDirective = () => {\n  console.log("Executing approved directive with MCP Server alignment...");\n  return { success: true, timestamp: "${new Date().toISOString()}" };\n};`,
+        codeContent: `/**\n * Approved CEO Directive Implementation\n * Proposal: ${prop.title}\n * Authorized by: Founder (User)\n * Executed by: Full Autonomous AI CTO Engine\n */\nexport const executeDirective = () => {\n  console.log("Executing approved directive with Full AI Agent alignment...");\n  return { success: true, timestamp: "${new Date().toISOString()}" };\n};`,
         description: `Generated production implementation code for ${prop.title}`
       },
       {
         id: `task-${Date.now()}-cmo`,
         proposalId: prop.id,
         proposalTitle: prop.title,
-        assigneeName: 'Priya Iyer',
+        assigneeName: 'Priya Iyer (CMO)',
         assigneeRole: 'CMO',
         badgeClass: 'badge-cmo',
         title: `GTM Campaign & Launch Strategy`,
@@ -103,17 +103,17 @@ export default function App() {
 
     const memory = addMemory({
       authorId: 'agent-ceo',
-      authorName: 'CEO (User)',
+      authorName: 'CEO (Strategic Visionary)',
       authorRole: 'CEO',
       category: 'CEO Decision',
       title: `APPROVED: ${prop.title}`,
-      content: `CEO officially signed off on "${prop.title}". Budget authorized. Execution tasks dispatched to Devansh Roy & Priya Iyer. Feedback: "${feedback || 'Proceed with excellence.'}"`,
-      tags: ['CEO Approval', 'MCP Protocol', prop.category],
+      content: `CEO signed off on "${prop.title}". Capital authorized. Tasks dispatched to Rohan Malhotra & Priya Iyer. Feedback: "${feedback || 'Proceed with velocity.'}"`,
+      tags: ['CEO Approval', 'Full AI Engine', prop.category],
       importance: 'High'
     });
 
     setMemories(prev => [memory, ...prev]);
-    showToast(`Proposal Approved! Execution tasks dispatched to MCP Crew.`, 'success');
+    showToast(`Proposal Approved! Execution tasks dispatched to Full AI Crew.`, 'success');
   };
 
   const handleRejectProposal = (proposalId, feedback) => {
@@ -164,10 +164,8 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'MCP_HUB' && (
-            <MCPControlHub
-              crewRoster={crewRoster}
-            />
+          {activeTab === 'AI_HUB' && (
+            <FullAiControlHub />
           )}
 
           {activeTab === 'APPROVALS' && (
@@ -207,7 +205,7 @@ export default function App() {
 
         {/* Footer */}
         <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-          <p>CrewOS AI &copy; {new Date().getFullYear()} — Autonomous Executive MCP Server Command Deck with CEO Governance & Indian C-Suite Roster</p>
+          <p>CrewOS AI &copy; {new Date().getFullYear()} — Full Autonomous AI C-Suite Swarm Command Suite with Founder Governance & GitHub Sync</p>
         </footer>
 
         {/* GitHub Settings Modal */}
